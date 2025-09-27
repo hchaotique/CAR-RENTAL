@@ -1,0 +1,21 @@
+# src/main/resources/application-local.yml
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=car_rental;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: 123
+  jpa:
+    hibernate:
+      ddl-auto: none        # Khi dùng Flyway, KHÔNG để create/update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true   # chỉ cần cho lần đầu để “đánh dấu” DB hiện có
+    baseline-version: 0

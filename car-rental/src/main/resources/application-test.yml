@@ -1,0 +1,21 @@
+# src/main/resources/application-test.yml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: 123
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
+server:
+  port: 8083

@@ -1,0 +1,22 @@
+# src/main/resources/application.yml
+spring:
+  application:
+    name: car-rental
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=car_rental;encrypt=false;trustServerCertificate=true;loginTimeout=30
+    username: sa
+    password: 123  # Thay bằng password của bạn
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+    validate-on-migrate: true
+server:
+  port: 8083

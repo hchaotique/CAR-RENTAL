@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turo - Thuê xe ô tô</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-text">Huy Hoàng auto 88</span>
+                </div>
+                <nav class="nav">
+                    <a href="#" class="nav-link">Huy Hoàng auto 88</a>
+                </nav>
+                <div class="header-actions">
+                    <button class="menu-btn">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <button class="user-btn">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-background">
+            <div class="hero-overlay"></div>
+        </div>
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">Đừng lãng phí thời gian ở đại lý</h1>
+                <p class="hero-subtitle">Thuê chiếc xe bạn muốn, ở bất cứ đâu bạn muốn</p>
+
+                <!-- Search Form -->
+                <form class="search-form" method="GET" action="/search">
+                    <input type="hidden" id="latitude" name="latitude">
+                    <input type="hidden" id="longitude" name="longitude">
+                    <div class="search-field">
+                        <label>Địa điểm</label>
+                        <input type="text" id="location" name="location" placeholder="Thành phố, sân bay, địa chỉ hoặc khách sạn" required>
+                    </div>
+                    <div class="search-field">
+                        <label>Ngày đi</label>
+                        <input type="date" id="pickupDate" name="pickupDate" required>
+                    </div>
+                    <div class="search-field">
+                        <label></label>
+                        <input type="time" id="pickupTime" name="pickupTime" required>
+                    </div>
+                    <div class="search-field">
+                        <label>Ngày về</label>
+                        <input type="date" id="returnDate" name="returnDate" required>
+                    </div>
+                    <div class="search-field">
+                        <label></label>
+                        <input type="time" id="returnTime" name="returnTime" required>
+                    </div>
+                    <button type="submit" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <section class="nav-tabs">
+        <div class="container">
+            <div class="tabs">
+                <button class="tab active">
+                    <i class="fas fa-car"></i>
+                    Tất cả
+                </button>
+                <button class="tab">
+                    <i class="fas fa-plane"></i>
+                    Sân bay và ga tàu
+                </button>
+                <button class="tab">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Gần đây
+                </button>
+                <button class="tab">
+                    <i class="fas fa-truck"></i>
+                    Giao xe tận nơi
+                </button>
+                <button class="tab">
+                    <i class="fas fa-city"></i>
+                    Thành phố
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Car Listings -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Featured Vehicles Section -->
+            <section class="car-section">
+                <div class="section-header">
+                    <h2>Xe nổi bật</h2>
+                    <div class="section-nav">
+                        <button class="nav-arrow prev"><i class="fas fa-chevron-left"></i></button>
+                        <button class="nav-arrow next"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="car-grid" th:if="${vehicles != null and !vehicles.isEmpty()}">
+                    <div th:each="vehicle : ${vehicles}" class="car-card" th:attr="data-vehicle-id=${vehicle.id}">
+                        <div class="car-image">
+                            <img th:src="${vehicle.imageUrl} ?: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=300&h=200&fit=crop'" 
+                                 th:alt="${vehicle.make} ${vehicle.model}" 
+                                 alt="{vehicle-image}">
+                        </div>
+                        <div class="car-info">
+                            <h3 th:text="${vehicle.make} + ' ' + ${vehicle.model} + (${vehicle.year} != null ? ' ' + ${vehicle.year} : '')">Vehicle Name</h3>
+                            <div class="rating">
+                                <span class="stars" th:text="${#numbers.formatDecimal(vehicle.rating, 1, 2)} + ' ⭐'">4.5 ⭐</span>
+                                <span class="reviews" th:text="('(' + ${vehicle.numReviews} + ' chuyến)')">(0 chuyến)</span>
+                            </div>
+                            <div class="price">
+                                <span class="price-value" th:text="(${vehicle.dailyPrice} * 3) + '₫ cho 3 ngày'">Price for 3 days</span>
+                            </div>
+                            <a th:href="@{/search(vehicleId=${vehicle.id})}" class="book-btn">Đặt xe</a>
+                        </div>
+                    </div>
+                </div>
+                <div th:if="${vehicles == null or vehicles.isEmpty()}" class="no-vehicles">
+                    <p>Không có xe nào khả dụng. Hãy thử tìm kiếm.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Huy Hoàng Auto 88</h3>
+                    <ul>
+                        <li><a href="#">Về chúng tôi</a></li>
+                        <li><a href="#">Quy định</a></li>
+                        <li><a href="#">Tuyển dụng</a></li>
+                        <li><a href="#">Báo chí</a></li>
+                        <li><a href="#">Cửa hàng Huy Hoàng Auto 88</a></li>
+                        <li><a href="#">Huy Hoàng Auto 88 Việt Nam</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Địa điểm</h3>
+                    <ul>
+                        <li><a href="#">Hà Nội</a></li>
+                        <li><a href="#">TP. Hồ Chí Minh</a></li>
+                        <li><a href="#">Đà Nẵng</a></li>
+                        <li><a href="#">Cần Thơ</a></li>
+                        <li><a href="#">Hải Phòng</a></li>
+                        <li><a href="#">Nha Trang</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Khám phá</h3>
+                    <ul>
+                        <li><a href="#">Tại sao chọn Huy Hoàng Auto 88</a></li>
+                        <li><a href="#">Cưới hỏi</a></li>
+                        <li><a href="#">Du lịch</a></li>
+                        <li><a href="#">Bảo mật</a></li>
+                        <li><a href="#">Trợ giúp</a></li>
+                        <li><a href="#">Bảo hiểm và bảo vệ (khách)</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Chủ xe</h3>
+                    <ul>
+                        <li><a href="#">Đăng ký xe của bạn</a></li>
+                        <li><a href="#">Chủ xe sao</a></li>
+                        <li><a href="#">Công cụ cho chủ xe</a></li>
+                        <li><a href="#">Bảo hiểm và bảo vệ (chủ xe)</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-facebook"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-tiktok"></i></a>
+                        <a href="#"><i class="fab fa-youtube"></i></a>
+                        <a href="#" class="blog-link">BLOG</a>
+                    </div>
+                    <div class="app-links">
+                        <a href="#" class="app-store">
+                            <img data-src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="App Store">
+                        </a>
+                        <a href="#" class="google-play">
+                            <img data-src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Google Play">
+                        </a>
+                    </div>
+                    <div class="language-selector">
+                        <button class="language-btn">
+                            <i class="fas fa-globe"></i>
+                            <span>Tiếng Việt</span>
+                            <i class="fas fa-chevron-up"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>©2025 Huy Hoàng Auto 88</p>
+                <div class="footer-links">
+                    <a href="#">Điều khoản dịch vụ</a>
+                    <a href="#">Chính sách bảo mật</a>
+                    <a href="#">Tùy chọn cookie</a>
+                    <a href="#">Không bán hoặc chia sẻ thông tin cá nhân của tôi</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/script.js}"></script>
+</body>
+</html>

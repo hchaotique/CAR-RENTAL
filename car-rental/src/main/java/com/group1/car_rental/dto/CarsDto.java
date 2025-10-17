@@ -3,7 +3,7 @@ package com.group1.car_rental.dto;
 import lombok.Data;
 
 @Data
-public class VehicleDto {
+public class CarsDto {
     private Long id;
     private String make;
     private String model;

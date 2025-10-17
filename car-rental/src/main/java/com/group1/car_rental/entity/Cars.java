@@ -6,10 +6,10 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "vehicles")
+@Table(name = "cars")
 @Data
 @NoArgsConstructor
-public class Vehicle {
+public class Cars {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -70,7 +70,7 @@ public class Vehicle {
     @Version
     private Integer version;
 
-    public Vehicle(User owner, String make, String model, String transmission, String fuelType) {
+    public Cars(User owner, String make, String model, String transmission, String fuelType) {
         this.owner = owner;
         this.make = make;
         this.model = model;

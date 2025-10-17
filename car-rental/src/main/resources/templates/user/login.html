@@ -12,14 +12,8 @@
             <h2 class="text-center">Đăng nhập</h2>
 
             <!-- Hiển thị lỗi -->
-            <div th:if="${error}" class="alert alert-danger" role="alert">
-                Email hoặc mật khẩu sai
-            </div>
-
-            <!-- Hiển thị thành công (nếu có) -->
-            <div th:if="${param.logout}" class="alert alert-success" role="alert">
-                Bạn đã đăng xuất thành công.
-            </div>
+            <div th:if="${param.error}" class="alert alert-danger" role="alert">Email hoặc mật khẩu sai.</div>
+            <div th:if="${param.logout}" class="alert alert-success" role="alert">Bạn đã đăng xuất thành công.</div>
 
             <form th:action="@{/login}" method="post">
                 <!-- CSRF Token -->
@@ -34,7 +28,10 @@
                     <label for="password" class="form-label">Mật khẩu</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
-
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="remember-me" name="remember-me">
+                    <label class="form-check-label" for="remember-me">Nhớ tôi</label>
+                </div>
                 <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
             </form>
 

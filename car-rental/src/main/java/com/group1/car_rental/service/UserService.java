@@ -25,13 +25,19 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User register(String email, String rawPassword, String fullName) {
-        // Validate email format (basic)
-        if (!email.contains("@") || email.length() > 190) {
+    public User register(String email, String fullName, String rawPassword, String phone, String role, String timezone) {
+        // Validate inputs
+        if (email == null || !email.contains("@") || email.length() > 190) {
             throw new IllegalArgumentException("Email không hợp lệ");
         }
-        if (fullName == null || fullName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Tên đầy đủ không được để trống");
+        if (fullName == null || fullName.trim().isEmpty() || fullName.length() > 120) {
+            throw new IllegalArgumentException("Tên đầy đủ không hợp lệ");
+        }
+        if (phone != null && !phone.matches("^((\\+84|0)[35789]\\d{8}|(\\d{4}\\s\\d{3}\\s\\d{3})|(\\d{2}\\s\\d{3}\\s\\d{3}\\s\\d{3}))?$")) {
+            throw new IllegalArgumentException("Số điện thoại không hợp lệ");
+        }
+        if (role == null || (!"CUSTOMER".equals(role) && !"HOST".equals(role))) {
+            throw new IllegalArgumentException("Loại tài khoản không hợp lệ");
         }
 
         // Check duplicate email
@@ -42,18 +48,20 @@ public class UserService {
         // Encode password
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
-        // Create and save user first
-        User user = new User(email, encodedPassword, "CUSTOMER");
+        // Create and save user
+        User user = new User(email, encodedPassword, role);
+        if (phone != null) {
+            user.setPhone(phone.trim());
+        }
+        if (timezone != null) {
+            user.setTimezone(timezone);
+        }
         user.setUpdatedAt(java.time.Instant.now());
         User savedUser = userRepository.save(user);
-        System.out.println("Saved user ID: " + savedUser.getId());
 
         // Create and save profile
         UserProfile profile = new UserProfile(fullName.trim(), savedUser);
-        savedUser.setProfile(profile);
-        profileRepository.save(profile);  // Assume @Autowired ProfileRepository or use userRepository if extended
-
-        System.out.println("After save: user.email=" + savedUser.getEmail() + ", profile.fullName=" + profile.getFullName());
+        profileRepository.save(profile);
 
         return savedUser;
     }

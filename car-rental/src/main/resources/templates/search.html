@@ -25,13 +25,13 @@
     <!-- Search Results -->
     <div class="container" style="padding: 20px;">
         <h1>Kết quả tìm kiếm cho <span th:text="${location}"></span></h1>
-        <div class="car-grid" th:if="${vehicles != null and !vehicles.isEmpty()}">
-            <div class="car-card" th:each="vehicle : ${vehicles}">
+        <div class="car-grid" th:if="${cars != null and !cars.isEmpty()}">
+            <div class="car-card" th:each="cars : ${cars}">
                 <div class="car-image">
-                    <img src="https://via.placeholder.com/300x200?text=Vehicle+Image" th:alt="${vehicle.make} + ' ' + ${vehicle.model}">
+                    <img src="https://via.placeholder.com/300x200?text=Vehicle+Image" th:alt="${cars.make} + ' ' + ${cars.model}">
                 </div>
                 <div class="car-info">
-                    <h3 th:text="${vehicle.make} + ' ' + ${vehicle.model}"></h3>
+                    <h3 th:text="${cars.make} + ' ' + ${cars.model}"></h3>
                     <div class="rating">
                         <span class="stars">4.8 ⭐</span>
                         <span class="reviews">(10 chuyến)</span>
@@ -42,7 +42,7 @@
                 </div>
             </div>
         </div>
-        <p th:if="${vehicles == null or vehicles.isEmpty()}">Không tìm thấy xe nào phù hợp.</p>
+        <p th:if="${cars == null or cars.isEmpty()}">Không tìm thấy xe nào phù hợp.</p>
     </div>
 
     <script th:src="@{/js/script.js}"></script>

@@ -100,6 +100,44 @@
         </div>
     </section>
 
+    <!-- Info Section -->
+    <section class="info-section">
+        <div class="container">
+            <div class="info-grid">
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Safe Driving">
+                    <h3>Lái xe an toàn cùng Mioto</h3>
+                    <p>Chuyến đi trên Mioto được bảo vệ với Gói bảo hiểm thuê xe tự lái MIC & DBV (VNI).</p>
+                </div>
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Easy Booking">
+                    <h3>An tâm đặt xe</h3>
+                    <p>Không tính phí hủy chuyến trong vòng 1h sau khi thanh toán giữ chỗ.</p>
+                </div>
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Simple Process">
+                    <h3>Thủ tục đơn giản</h3>
+                    <p>Chỉ cần có CCCD gắn chip (Hoặc Passport) & Giấy phép lái xe là bạn đã đủ điều kiện thuê xe trên Mioto.</p>
+                </div>
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Easy Payment">
+                    <h3>Thanh toán dễ dàng</h3>
+                    <p>Đa dạng hình thức thanh toán: ATM, thẻ Visa & Ví điện tử (Momo, VnPay, ZaloPay).</p>
+                </div>
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Delivery">
+                    <h3>Giao xe tận nơi</h3>
+                    <p>Bạn có thể lựa chọn giao xe tận nhà/sân bay...</p>
+                </div>
+                <div class="info-card">
+                    <img src="https://via.placeholder.com/100" alt="Variety of Cars">
+                    <h3>Dòng xe đa dạng</h3>
+                    <p>Hơn 100 dòng xe cho bạn tùy ý lựa chọn: Mini, Sedan, SUV, MPV, Xe tải.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Car Listings -->
     <main class="main-content">
         <div class="container">
@@ -112,27 +150,27 @@
                         <button class="nav-arrow next"><i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
-                <div class="car-grid" th:if="${vehicles != null and !vehicles.isEmpty()}">
-                    <div th:each="vehicle : ${vehicles}" class="car-card" th:attr="data-vehicle-id=${vehicle.id}">
+                <div class="car-grid" th:if="${cars != null and !cars.isEmpty()}">
+                    <div th:each="cars : ${cars}" class="car-card" th:attr="data-cars-id=${cars.id}">
                         <div class="car-image">
-                            <img th:src="${vehicle.imageUrl} ?: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=300&h=200&fit=crop'" 
-                                 th:alt="${vehicle.make} ${vehicle.model}" 
-                                 alt="{vehicle-image}">
+                            <img th:src="${cars.imageUrl} ?: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=300&h=200&fit=crop'"
+                                 th:alt="${cars.make} ${cars.model}"
+                                 alt="{cars-image}">
                         </div>
                         <div class="car-info">
-                            <h3 th:text="${vehicle.make} + ' ' + ${vehicle.model} + (${vehicle.year} != null ? ' ' + ${vehicle.year} : '')">Vehicle Name</h3>
+                            <h3 th:text="${cars.make} + ' ' + ${cars.model} + (${cars.year} != null ? ' ' + ${cars.year} : '')">Vehicle Name</h3>
                             <div class="rating">
-                                <span class="stars" th:text="${#numbers.formatDecimal(vehicle.rating, 1, 2)} + ' ⭐'">4.5 ⭐</span>
-                                <span class="reviews" th:text="('(' + ${vehicle.numReviews} + ' chuyến)')">(0 chuyến)</span>
+                                <span class="stars" th:text="${#numbers.formatDecimal(cars.rating, 1, 2)} + ' ⭐'">4.5 ⭐</span>
+                                <span class="reviews" th:text="('(' + ${cars.numReviews} + ' chuyến)')">(0 chuyến)</span>
                             </div>
                             <div class="price">
-                                <span class="price-value" th:text="(${vehicle.dailyPrice} * 3) + '₫ cho 3 ngày'">Price for 3 days</span>
+                                <span class="price-value" th:text="(${cars.dailyPrice} * 3) + '₫ cho 3 ngày'">Price for 3 days</span>
                             </div>
-                            <a th:href="@{/search(vehicleId=${vehicle.id})}" class="book-btn">Đặt xe</a>
+                            <a th:href="@{/search(vehicleId=${cars.id})}" class="book-btn">Đặt xe</a>
                         </div>
                     </div>
                 </div>
-                <div th:if="${vehicles == null or vehicles.isEmpty()}" class="no-vehicles">
+                <div th:if="${cars == null or cars.isEmpty()}" class="no-cars">
                     <p>Không có xe nào khả dụng. Hãy thử tìm kiếm.</p>
                 </div>
             </section>

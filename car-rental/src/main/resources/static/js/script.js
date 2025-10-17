@@ -546,7 +546,7 @@ function validatePassword(password) {
 }
 
 function validatePhone(phone) {
-    const phoneRegex = /^(\+84|0)[3|5|7|8|9]{1}[0-9]{8}$/;
+    const phoneRegex = /^((\+84|0)[35789]\d{8}|(\d{4}\s\d{3}\s\d{3})|(\d{2}\s\d{3}\s\d{3}\s\d{3}))?$/;
     return phoneRegex.test(phone) || phone === '';
 }
 
@@ -574,58 +574,265 @@ function setupLoginValidation() {
 function setupRegisterValidation() {
     const registerForm = document.querySelector('form[action="/register"]');
     if (registerForm) {
-        const password = document.querySelector('input[name="password"]');
-        const confirmPassword = document.querySelector('input[name="confirmPassword"]');
-        const email = document.querySelector('input[name="email"]');
-        const fullName = document.querySelector('input[name="fullName"]');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirmPassword');
+        const email = document.getElementById('email');
+        const fullName = document.getElementById('fullName');
+        const phone = document.getElementById('phone');
 
-        // Real-time password match
+        // Password toggle functionality
+        setupPasswordToggle();
+
+        // Password strength meter
+        setupPasswordStrength();
+
+        // Phone number formatting
+        setupPhoneFormatting();
+
+        // Real-time password match validation
         if (confirmPassword && password) {
             confirmPassword.addEventListener('input', () => {
-                const matchFeedback = registerForm.querySelector('.password-match');
-                if (!matchFeedback) {
-                    const feedback = document.createElement('div');
-                    feedback.className = 'password-match mt-1';
-                    feedback.style.fontSize = '14px';
-                    confirmPassword.parentNode.appendChild(feedback);
-                    matchFeedback = feedback;
-                }
+                const matchText = document.getElementById('matchText');
                 if (password.value !== confirmPassword.value) {
-                    matchFeedback.textContent = 'Mật khẩu không khớp!';
-                    matchFeedback.style.color = '#dc3545';
+                    matchText.textContent = 'Mật khẩu không khớp!';
+                    matchText.style.color = '#dc3545';
                 } else if (confirmPassword.value.length > 0) {
-                    matchFeedback.textContent = 'Mật khẩu khớp!';
-                    matchFeedback.style.color = '#28a745';
+                    matchText.textContent = '✓ Mật khẩu khớp!';
+                    matchText.style.color = '#28a745';
                 } else {
-                    matchFeedback.textContent = '';
+                    matchText.textContent = '';
                 }
             });
         }
 
         registerForm.addEventListener('submit', (e) => {
+            // Validate email
             if (!validateEmail(email.value)) {
                 e.preventDefault();
-                alert('Email không hợp lệ!');
+                showToast('Email không hợp lệ!', 'error');
+                email.focus();
                 return false;
             }
+
+            // Validate full name
             if (fullName.value.trim().length < 2) {
                 e.preventDefault();
-                alert('Tên đầy đủ phải có ít nhất 2 ký tự!');
+                showToast('Tên đầy đủ phải có ít nhất 2 ký tự!', 'error');
+                fullName.focus();
                 return false;
             }
-            if (!validatePassword(password.value)) {
+
+            // Validate phone if provided
+            if (phone.value && !validatePhone(phone.value)) {
                 e.preventDefault();
-                alert('Mật khẩu phải có ít nhất 6 ký tự!');
+                showToast('Số điện thoại không hợp lệ! (Định dạng Việt Nam)', 'error');
+                phone.focus();
                 return false;
             }
+
+            // Validate password strength
+            const strength = calculatePasswordStrength(password.value);
+            if (strength.score < 2) {
+                e.preventDefault();
+                showToast('Mật khẩu quá yếu! Cần ít nhất 8 ký tự với chữ hoa, chữ thường và số.', 'error');
+                password.focus();
+                return false;
+            }
+
+            // Validate password match
             if (password.value !== confirmPassword.value) {
                 e.preventDefault();
-                alert('Mật khẩu xác nhận không khớp!');
+                showToast('Mật khẩu xác nhận không khớp!', 'error');
+                confirmPassword.focus();
                 return false;
             }
+
+            // Add timezone to form
+            const timezoneInput = document.createElement('input');
+            timezoneInput.type = 'hidden';
+            timezoneInput.name = 'timezone';
+            timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            registerForm.appendChild(timezoneInput);
+
             return true;
         });
     }
+}
+
+function setupPasswordToggle() {
+    // Toggle password visibility
+    const togglePassword = document.getElementById('togglePassword');
+    const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirmPassword');
+
+    if (togglePassword && password) {
+        togglePassword.addEventListener('click', () => {
+            const type = password.type === 'password' ? 'text' : 'password';
+            password.type = type;
+            togglePassword.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        });
+    }
+
+    if (toggleConfirmPassword && confirmPassword) {
+        toggleConfirmPassword.addEventListener('click', () => {
+            const type = confirmPassword.type === 'password' ? 'text' : 'password';
+            confirmPassword.type = type;
+            toggleConfirmPassword.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        });
+    }
+}
+
+function setupPasswordStrength() {
+    const password = document.getElementById('password');
+    const strengthBar = document.getElementById('strengthBar');
+    const strengthText = document.getElementById('strengthText');
+
+    if (password && strengthBar && strengthText) {
+        password.addEventListener('input', () => {
+            const strength = calculatePasswordStrength(password.value);
+            strengthBar.style.width = strength.percentage + '%';
+
+            // Remove all classes
+            strengthBar.classList.remove('bg-danger', 'bg-warning', 'bg-success');
+
+            // Add appropriate class and text
+            if (strength.score === 0) {
+                strengthBar.classList.add('bg-danger');
+                strengthText.textContent = 'Rất yếu';
+                strengthText.style.color = '#dc3545';
+            } else if (strength.score === 1) {
+                strengthBar.classList.add('bg-warning');
+                strengthText.textContent = 'Yếu';
+                strengthText.style.color = '#ffc107';
+            } else if (strength.score === 2) {
+                strengthBar.classList.add('bg-warning');
+                strengthText.textContent = 'Trung bình';
+                strengthText.style.color = '#ffc107';
+            } else if (strength.score === 3) {
+                strengthBar.classList.add('bg-success');
+                strengthText.textContent = 'Mạnh';
+                strengthText.style.color = '#28a745';
+            } else {
+                strengthBar.classList.add('bg-success');
+                strengthText.textContent = 'Rất mạnh';
+                strengthText.style.color = '#28a745';
+            }
+        });
+    }
+}
+
+function calculatePasswordStrength(password) {
+    let score = 0;
+    let feedback = [];
+
+    // Length check
+    if (password.length >= 8) {
+        score += 1;
+    } else {
+        feedback.push('ít nhất 8 ký tự');
+    }
+
+    // Lowercase check
+    if (/[a-z]/.test(password)) {
+        score += 1;
+    } else {
+        feedback.push('chữ thường');
+    }
+
+    // Uppercase check
+    if (/[A-Z]/.test(password)) {
+        score += 1;
+    } else {
+        feedback.push('chữ hoa');
+    }
+
+    // Number check
+    if (/\d/.test(password)) {
+        score += 1;
+    } else {
+        feedback.push('số');
+    }
+
+    // Special character check
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+        score += 1;
+    } else {
+        feedback.push('ký tự đặc biệt');
+    }
+
+    const percentage = Math.min(100, (score / 5) * 100);
+
+    return {
+        score: score,
+        percentage: percentage,
+        feedback: feedback
+    };
+}
+
+function setupPhoneFormatting() {
+    const phoneInput = document.getElementById('phone');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+
+            // Format Vietnamese phone number
+            if (value.startsWith('84') && value.length > 2) {
+                // International format: +84 XXX XXX XXX
+                value = value.replace(/(\d{2})(\d{3})(\d{3})(\d{3})/, '$1 $2 $3 $4');
+            } else if (value.startsWith('0') && value.length > 1) {
+                // Local format: 0XXX XXX XXX
+                value = value.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3');
+            }
+
+            e.target.value = value;
+        });
+
+        phoneInput.addEventListener('blur', () => {
+            const value = phoneInput.value.replace(/\s/g, '');
+            if (value && !validatePhone(value)) {
+                phoneInput.style.borderColor = '#dc3545';
+            } else {
+                phoneInput.style.borderColor = '#dee2e6';
+            }
+        });
+    }
+}
+
+function showToast(message, type = 'success') {
+    // Remove existing toasts
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // Create toast container
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-notification';
+    toastContainer.innerHTML = `
+        <div class="toast ${type}" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">${type === 'success' ? 'Thành công' : 'Lỗi'}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(toastContainer);
+
+    // Initialize Bootstrap toast
+    const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+    toast.show();
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (toastContainer.parentNode) {
+            toastContainer.remove();
+        }
+    }, 5000);
 }
 
 function setupProfileValidation() {

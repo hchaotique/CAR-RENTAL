@@ -6,14 +6,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
-import com.group1.car_rental.service.VehicleService;
-import com.group1.car_rental.dto.VehicleDto;
+import com.group1.car_rental.service.CarsService;
+import com.group1.car_rental.dto.CarsDto;
 
 @Controller
 @RequiredArgsConstructor
 public class SearchController {
 
-    private final VehicleService vehicleService;
+    private final CarsService vehicleService;
 
     @GetMapping("/search")
     public String search(@RequestParam String location,
@@ -24,7 +24,7 @@ public class SearchController {
                          @RequestParam(required = false) String latitude,
                          @RequestParam(required = false) String longitude,
                          Model model) {
-        List<VehicleDto> searchResults = vehicleService.searchByLocation(location);
+        List<CarsDto> searchResults = vehicleService.searchByLocation(location);
         model.addAttribute("vehicles", searchResults);
         model.addAttribute("location", location);
         model.addAttribute("pickupDate", pickupDate);

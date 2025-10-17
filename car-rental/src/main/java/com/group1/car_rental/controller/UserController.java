@@ -25,26 +25,28 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public String register(@ModelAttribute("registrationForm") RegistrationForm form,
+    public String register(@Valid @ModelAttribute("registrationForm") RegistrationForm form,
+                           BindingResult bindingResult,
                            RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) {
+            return "user/register";
+        }
         try {
             // Validate password match
             if (!form.getPassword().equals(form.getConfirmPassword())) {
-                redirectAttributes.addFlashAttribute("error", "Mật khẩu không khớp");
+                redirectAttributes.addFlashAttribute("error", "Mật khẩu xác nhận không khớp");
                 return "redirect:/register";
             }
 
-            // Log form data
-            System.out.println("Registering user: email=" + form.getEmail() + ", fullName=" + form.getFullName() + ", password length=" + form.getPassword().length());
-
             // Register user
-            userService.register(form.getEmail(), form.getPassword(), form.getFullName());
+            userService.register(form.getEmail().trim(), form.getFullName().trim(), form.getPassword(), form.getPhone(), form.getRole(), form.getTimezone());
 
-            // Success
-            redirectAttributes.addFlashAttribute("success", "Đăng ký thành công! Vui lòng đăng nhập.");
-            return "redirect:/login";
+            // Role-based redirect
+            String redirectUrl = "CUSTOMER".equals(form.getRole()) ? "/" : "/cars/add";
+            redirectAttributes.addFlashAttribute("success", "Đăng ký thành công! Chào mừng bạn đến với hệ thống.");
+            return "redirect:" + redirectUrl;
         } catch (UserService.DuplicateEmailException e) {
-            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Email đã tồn tại");
             return "redirect:/register";
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
@@ -93,10 +95,29 @@ public class UserController {
     }
 
     public static class RegistrationForm {
+        @jakarta.validation.constraints.Email(message = "Email không hợp lệ")
+        @jakarta.validation.constraints.NotBlank(message = "Email không được trống")
         private String email;
-        private String password;
-        private String confirmPassword;
+
+        @jakarta.validation.constraints.NotBlank(message = "Tên đầy đủ không được để trống")
+        @jakarta.validation.constraints.Size(max = 120, message = "Tên đầy đủ quá dài")
         private String fullName;
+
+        @jakarta.validation.constraints.NotBlank(message = "Mật khẩu không được trống")
+        @jakarta.validation.constraints.Size(min = 8, max = 60, message = "Mật khẩu 8–60 ký tự")
+        private String password;
+
+        @jakarta.validation.constraints.NotBlank(message = "Xác nhận mật khẩu không được trống")
+        private String confirmPassword;
+
+        @jakarta.validation.constraints.Pattern(regexp = "^((\\+84|0)[35789]\\d{8}|(\\d{4}\\s\\d{3}\\s\\d{3})|(\\d{2}\\s\\d{3}\\s\\d{3}\\s\\d{3}))?$", message = "Số điện thoại không hợp lệ")
+        private String phone;
+
+        @jakarta.validation.constraints.NotBlank(message = "Vui lòng chọn loại tài khoản")
+        @jakarta.validation.constraints.Pattern(regexp = "^(CUSTOMER|HOST)$", message = "Loại tài khoản không hợp lệ")
+        private String role = "CUSTOMER";
+
+        private String timezone;
 
         // Getters and setters
         public String getEmail() { return email; }
@@ -107,6 +128,12 @@ public class UserController {
         public void setConfirmPassword(String confirmPassword) { this.confirmPassword = confirmPassword; }
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
+        public String getPhone() { return phone; }
+        public void setPhone(String phone) { this.phone = phone; }
+        public String getRole() { return role; }
+        public void setRole(String role) { this.role = role; }
+        public String getTimezone() { return timezone; }
+        public void setTimezone(String timezone) { this.timezone = timezone; }
     }
 
     public static class ProfileUpdateForm {

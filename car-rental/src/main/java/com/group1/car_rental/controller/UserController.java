@@ -11,9 +11,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 public class UserController {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserService userService;
@@ -28,30 +32,40 @@ public class UserController {
     public String register(@Valid @ModelAttribute("registrationForm") RegistrationForm form,
                            BindingResult bindingResult,
                            RedirectAttributes redirectAttributes) {
+        logger.debug("Registration attempt for email: {}", form.getEmail());
+
         if (bindingResult.hasErrors()) {
+            logger.warn("Validation errors during registration: {}", bindingResult.getAllErrors());
             return "user/register";
         }
+
         try {
             // Validate password match
             if (!form.getPassword().equals(form.getConfirmPassword())) {
+                logger.warn("Password confirmation mismatch for email: {}", form.getEmail());
                 redirectAttributes.addFlashAttribute("error", "Mật khẩu xác nhận không khớp");
                 return "redirect:/register";
             }
 
+            logger.debug("Calling userService.register for email: {}", form.getEmail());
             // Register user
-            userService.register(form.getEmail().trim(), form.getFullName().trim(), form.getPassword(), form.getPhone(), form.getRole(), form.getTimezone());
+            userService.register(form.getEmail().trim(), form.getFullName().trim(), form.getPassword(), form.getPhone(), form.getRole());
 
             // Role-based redirect
             String redirectUrl = "CUSTOMER".equals(form.getRole()) ? "/" : "/cars/add";
+            logger.info("Registration successful for email: {}", form.getEmail());
             redirectAttributes.addFlashAttribute("success", "Đăng ký thành công! Chào mừng bạn đến với hệ thống.");
             return "redirect:" + redirectUrl;
         } catch (UserService.DuplicateEmailException e) {
+            logger.warn("Duplicate email registration attempt: {}", form.getEmail());
             redirectAttributes.addFlashAttribute("error", "Email đã tồn tại");
             return "redirect:/register";
         } catch (IllegalArgumentException e) {
+            logger.warn("Validation error during registration for email {}: {}", form.getEmail(), e.getMessage());
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/register";
         } catch (Exception e) {
+            logger.error("System error during registration for email {}: {}", form.getEmail(), e.getMessage(), e);
             redirectAttributes.addFlashAttribute("error", "Lỗi hệ thống. Vui lòng thử lại.");
             return "redirect:/register";
         }
@@ -117,8 +131,6 @@ public class UserController {
         @jakarta.validation.constraints.Pattern(regexp = "^(CUSTOMER|HOST)$", message = "Loại tài khoản không hợp lệ")
         private String role = "CUSTOMER";
 
-        private String timezone;
-
         // Getters and setters
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
@@ -132,8 +144,6 @@ public class UserController {
         public void setPhone(String phone) { this.phone = phone; }
         public String getRole() { return role; }
         public void setRole(String role) { this.role = role; }
-        public String getTimezone() { return timezone; }
-        public void setTimezone(String timezone) { this.timezone = timezone; }
     }
 
     public static class ProfileUpdateForm {

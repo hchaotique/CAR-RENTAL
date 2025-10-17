@@ -14,6 +14,6 @@ public interface CarsRepository extends JpaRepository<Cars, Long> {
 
     List<Cars> findByOwner(User owner);
 
-    @Query("SELECT v FROM Vehicle v WHERE LOWER(v.make) LIKE LOWER(CONCAT('%', :location, '%')) OR LOWER(v.model) LIKE LOWER(CONCAT('%', :location, '%'))")
+    @Query("SELECT c FROM Cars c WHERE LOWER(c.make) LIKE LOWER(CONCAT('%', :location, '%')) OR LOWER(c.model) LIKE LOWER(CONCAT('%', :location, '%'))")
     List<Cars> searchByLocation(@Param("location") String location);
 }

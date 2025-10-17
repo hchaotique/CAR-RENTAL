@@ -11,9 +11,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -25,44 +29,54 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User register(String email, String fullName, String rawPassword, String phone, String role, String timezone) {
+    public User register(String email, String fullName, String rawPassword, String phone, String role) {
+        logger.debug("Starting user registration for email: {}", email);
+
         // Validate inputs
         if (email == null || !email.contains("@") || email.length() > 190) {
+            logger.warn("Invalid email format: {}", email);
             throw new IllegalArgumentException("Email không hợp lệ");
         }
         if (fullName == null || fullName.trim().isEmpty() || fullName.length() > 120) {
+            logger.warn("Invalid full name: {}", fullName);
             throw new IllegalArgumentException("Tên đầy đủ không hợp lệ");
         }
         if (phone != null && !phone.matches("^((\\+84|0)[35789]\\d{8}|(\\d{4}\\s\\d{3}\\s\\d{3})|(\\d{2}\\s\\d{3}\\s\\d{3}\\s\\d{3}))?$")) {
+            logger.warn("Invalid phone format: {}", phone);
             throw new IllegalArgumentException("Số điện thoại không hợp lệ");
         }
         if (role == null || (!"CUSTOMER".equals(role) && !"HOST".equals(role))) {
+            logger.warn("Invalid role: {}", role);
             throw new IllegalArgumentException("Loại tài khoản không hợp lệ");
         }
 
         // Check duplicate email
+        logger.debug("Checking for duplicate email: {}", email);
         if (userRepository.findByEmail(email).isPresent()) {
+            logger.warn("Duplicate email found: {}", email);
             throw new DuplicateEmailException("Email đã tồn tại");
         }
 
         // Encode password
+        logger.debug("Encoding password for user: {}", email);
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
         // Create and save user
+        logger.debug("Creating user entity for: {}", email);
         User user = new User(email, encodedPassword, role);
         if (phone != null) {
             user.setPhone(phone.trim());
         }
-        if (timezone != null) {
-            user.setTimezone(timezone);
-        }
         user.setUpdatedAt(java.time.Instant.now());
         User savedUser = userRepository.save(user);
+        logger.debug("User saved with ID: {}", savedUser.getId());
 
         // Create and save profile
+        logger.debug("Creating user profile for user ID: {}", savedUser.getId());
         UserProfile profile = new UserProfile(fullName.trim(), savedUser);
         profileRepository.save(profile);
 
+        logger.info("User registration completed successfully for email: {}", email);
         return savedUser;
     }
 

@@ -26,28 +26,7 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
           .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/", "/search", "/register", "/login", "/user/profile",
-                             "/css/**", "/js/**", "/img/**").permitAll()
-            .anyRequest().authenticated()
-          )
-          .formLogin(login -> login
-            .loginPage("/login")
-            .defaultSuccessUrl("/", true)
-            .failureUrl("/login?error")
-            .permitAll()
-          )
-          .rememberMe(rm -> rm
-            .rememberMeParameter("remember-me")
-            .tokenValiditySeconds(60 * 60 * 24 * 14) // 14 days
-          )
-          .logout(logout -> logout
-            .logoutUrl("/logout")
-            .logoutSuccessUrl("/login?logout")
-            .permitAll()
-          )
-          .sessionManagement(sm -> sm
-            .sessionFixation(session -> session.migrateSession())
-            .maximumSessions(1)
+            .anyRequest().permitAll()
           );
         return http.build();
     }

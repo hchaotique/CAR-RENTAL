@@ -1,0 +1,31 @@
+# src/main/resources/application.yml
+spring:
+  application:
+    name: car_rental
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=car_rental;encrypt=false;trustServerCertificate=true;loginTimeout=30
+    username: sa
+    password: 123  # Thay bằng password của bạn
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+  flyway:
+    enabled: false
+server:
+  port: 8085
+
+logging:
+  level:
+    com.group1.car_rental: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

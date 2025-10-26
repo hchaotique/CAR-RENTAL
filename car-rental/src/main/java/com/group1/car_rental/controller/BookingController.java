@@ -40,10 +40,11 @@ public class BookingController {
             @RequestParam Long listingId,
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate,
-            @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
+            @RequestHeader("Idempotency-Key") String idempotencyKeyStr,
+            @RequestParam Long userId) {
 
         UUID idempotencyKey = UUID.fromString(idempotencyKeyStr);
-        UUID holdToken = bookingService.holdSlot(listingId, startDate, endDate, idempotencyKey);
+        UUID holdToken = bookingService.holdSlot(listingId, startDate, endDate, idempotencyKey, userId);
 
         return ResponseEntity.ok(Map.of(
             "holdToken", holdToken,

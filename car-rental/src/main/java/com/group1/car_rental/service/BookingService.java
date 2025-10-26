@@ -33,8 +33,67 @@ public class BookingService {
     @Autowired
     private OutboxEventsRepository outboxEventsRepository;
 
+    @Autowired
+    private CarListingsRepository carListingsRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    // Validation methods
+    private void validateListingEligibility(Long listingId) {
+        CarListings listing = carListingsRepository.findById(listingId)
+            .orElseThrow(() -> new RuntimeException("Listing not found"));
+
+        if (!"ACTIVE".equals(listing.getStatus())) {
+            throw new RuntimeException("Listing is not active");
+        }
+
+        if (listing.getPrice24hCents() == null || listing.getPrice24hCents() <= 0) {
+            throw new RuntimeException("Listing must have a valid daily price");
+        }
+
+        if (listing.getHomeLocation() == null) {
+            throw new RuntimeException("Listing must have a valid home location");
+        }
+    }
+
+    private void validateUserEligibility(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!"CUSTOMER".equals(user.getRole())) {
+            throw new RuntimeException("Only customers can place bookings");
+        }
+
+        if (!user.getIsActive()) {
+            throw new RuntimeException("User account is not active");
+        }
+
+        UserProfile profile = user.getProfile();
+        if (profile == null || !"VERIFIED".equals(profile.getKycStatus())) {
+            throw new RuntimeException("KYC verification required to place bookings");
+        }
+    }
+
+    private void validateHostEligibility(CarListings listing) {
+        User owner = listing.getVehicle().getOwner();
+        if (!"HOST".equals(owner.getRole())) {
+            throw new RuntimeException("Listing owner must be a host");
+        }
+
+        if (!owner.getIsActive()) {
+            throw new RuntimeException("Host account is not active");
+        }
+    }
+
     // 1. Check Availability
     public boolean checkAvailability(Long listingId, LocalDate startDate, LocalDate endDate) {
+        // Validate listing eligibility first
+        validateListingEligibility(listingId);
+
         List<AvailabilityCalendar> calendars = availabilityCalendarRepository
             .findByListingIdAndDateRange(listingId, startDate, endDate);
 
@@ -46,7 +105,10 @@ public class BookingService {
 
     // 2. Hold Slot
     @Transactional
-    public UUID holdSlot(Long listingId, LocalDate startDate, LocalDate endDate, UUID idempotencyKey) {
+    public UUID holdSlot(Long listingId, LocalDate startDate, LocalDate endDate, UUID idempotencyKey, Long userId) {
+        // Validate user eligibility first
+        validateUserEligibility(userId);
+
         // Check idempotency
         if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
             throw new RuntimeException("Duplicate request");
@@ -55,7 +117,7 @@ public class BookingService {
         // Save idempotency key
         idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
 
-        // Check availability
+        // Check availability (includes listing validation)
         if (!checkAvailability(listingId, startDate, endDate)) {
             throw new RuntimeException("Not available");
         }
@@ -84,6 +146,12 @@ public class BookingService {
     // 3. Create Booking
     @Transactional
     public Bookings createBooking(Bookings booking, UUID holdToken) {
+        // Validate user eligibility
+        validateUserEligibility(booking.getGuest().getId());
+
+        // Validate host eligibility
+        validateHostEligibility(booking.getListing());
+
         // Validate hold token
         Bookings existingHold = bookingsRepository.findByHoldToken(holdToken);
         if (existingHold != null) {

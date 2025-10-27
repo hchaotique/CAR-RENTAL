@@ -498,7 +498,232 @@ const debouncedScrollHandler = debounce(() => {
 
 window.addEventListener('scroll', debouncedScrollHandler);
 
-console.log('Turo website loaded successfully!');
+console.log('Huy Hoàng Auto 88 website loaded successfully!');
+
+// Loading states for forms
+function showLoading(buttonId, loadingText = 'Đang xử lý...') {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>${loadingText}`;
+    }
+}
+
+function hideLoading(buttonId, originalText) {
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+// Error handling
+function showError(message, containerId = 'error-container') {
+    let container = document.getElementById(containerId);
+    if (!container) {
+        container = document.createElement('div');
+        container.id = containerId;
+        container.className = 'alert alert-danger mt-3';
+        const form = document.querySelector('form');
+        if (form) {
+            form.parentNode.insertBefore(container, form.nextSibling);
+        }
+    }
+    container.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${message}`;
+    container.style.display = 'block';
+    setTimeout(() => {
+        container.style.display = 'none';
+    }, 5000);
+}
+
+function showSuccess(message, containerId = 'success-container') {
+    let container = document.getElementById(containerId);
+    if (!container) {
+        container = document.createElement('div');
+        container.id = containerId;
+        container.className = 'alert alert-success mt-3';
+        const form = document.querySelector('form');
+        if (form) {
+            form.parentNode.insertBefore(container, form.nextSibling);
+        }
+    }
+    container.innerHTML = `<i class="fas fa-check-circle me-2"></i>${message}`;
+    container.style.display = 'block';
+    setTimeout(() => {
+        container.style.display = 'none';
+    }, 3000);
+}
+
+// Form submission with loading states
+document.addEventListener('DOMContentLoaded', function() {
+    // Add loading states to forms
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn && !submitBtn.disabled) {
+                const originalText = submitBtn.innerHTML;
+                showLoading(submitBtn.id || 'submit-btn', 'Đang xử lý...');
+
+                // Re-enable after 10 seconds as fallback
+                setTimeout(() => {
+                    hideLoading(submitBtn.id || 'submit-btn', originalText);
+                }, 10000);
+            }
+        });
+    });
+
+    // Enhanced search form
+    const searchForm = document.querySelector('.search-form');
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            const locationInput = searchForm.querySelector('input[name="location"]');
+            if (locationInput && locationInput.value.trim().length < 2) {
+                e.preventDefault();
+                showError('Vui lòng nhập địa điểm tìm kiếm (ít nhất 2 ký tự)');
+                return false;
+            }
+        });
+    }
+
+    // Enhanced car booking
+    const bookButtons = document.querySelectorAll('.book-btn');
+    bookButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            // Could add confirmation dialog here
+            const carName = this.closest('.car-card').querySelector('h3').textContent;
+            console.log(`Booking initiated for: ${carName}`);
+        });
+    });
+
+    // Enhanced user dropdown
+    const userBtn = document.querySelector('.user-btn');
+    const userMenu = document.querySelector('.user-dropdown-menu');
+
+    if (userBtn && userMenu) {
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+                userMenu.classList.remove('show');
+            }
+        });
+
+        // Toggle menu on button click
+        userBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            userMenu.classList.toggle('show');
+        });
+    }
+
+    // Enhanced image lazy loading with error handling
+    const images = document.querySelectorAll('img[data-src]');
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                const src = img.dataset.src;
+                if (src) {
+                    img.src = src;
+                    img.onload = () => {
+                        img.style.opacity = '1';
+                        img.removeAttribute('data-src');
+                    };
+                    img.onerror = () => {
+                        img.src = 'https://via.placeholder.com/300x200?text=Hình+ảnh+không+có+sẵn';
+                        img.style.opacity = '1';
+                    };
+                    observer.unobserve(img);
+                }
+            }
+        });
+    });
+
+    images.forEach(img => {
+        img.style.opacity = '0';
+        img.style.transition = 'opacity 0.3s ease-in-out';
+        imageObserver.observe(img);
+    });
+
+    // Enhanced mobile menu
+    const menuBtn = document.querySelector('.menu-btn');
+    if (menuBtn) {
+        menuBtn.addEventListener('click', function() {
+            // Create mobile menu if it doesn't exist
+            let mobileMenu = document.querySelector('.mobile-menu');
+            if (!mobileMenu) {
+                mobileMenu = document.createElement('div');
+                mobileMenu.className = 'mobile-menu';
+                mobileMenu.style.cssText = `
+                    position: fixed;
+                    top: 70px;
+                    left: 0;
+                    right: 0;
+                    background: white;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    z-index: 999;
+                    padding: 20px;
+                    transform: translateY(-100%);
+                    transition: transform 0.3s;
+                `;
+                mobileMenu.innerHTML = `
+                    <a href="/" style="display: block; padding: 15px 0; color: #333; text-decoration: none; border-bottom: 1px solid #f0f0f0;">Trang chủ</a>
+                    <a href="/search" style="display: block; padding: 15px 0; color: #333; text-decoration: none; border-bottom: 1px solid #f0f0f0;">Tìm xe</a>
+                    <a href="/cars/list" style="display: block; padding: 15px 0; color: #333; text-decoration: none; border-bottom: 1px solid #f0f0f0;">Quản lý xe</a>
+                    <a href="/login" style="display: block; padding: 15px 0; color: #333; text-decoration: none;">Đăng nhập</a>
+                `;
+                document.body.appendChild(mobileMenu);
+            }
+
+            const isVisible = mobileMenu.style.transform === 'translateY(0px)';
+            mobileMenu.style.transform = isVisible ? 'translateY(-100%)' : 'translateY(0px)';
+        });
+    }
+
+    // Enhanced scroll effects
+    let lastScrollY = window.scrollY;
+    const header = document.querySelector('.header');
+
+    window.addEventListener('scroll', function() {
+        const currentScrollY = window.scrollY;
+
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            // Scrolling down - hide header
+            header.style.transform = 'translateY(-100%)';
+        } else {
+            // Scrolling up - show header
+            header.style.transform = 'translateY(0)';
+        }
+
+        lastScrollY = currentScrollY;
+    });
+
+    // Enhanced keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            document.body.classList.add('keyboard-navigation');
+        }
+    });
+
+    document.addEventListener('mousedown', function() {
+        document.body.classList.remove('keyboard-navigation');
+    });
+
+    // Enhanced focus management
+    const focusableElements = document.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    focusableElements.forEach(element => {
+        element.addEventListener('focus', function() {
+            this.style.outline = '2px solid #28C07B';
+            this.style.outlineOffset = '2px';
+        });
+
+        element.addEventListener('blur', function() {
+            this.style.outline = '';
+            this.style.outlineOffset = '';
+        });
+    });
+
+    console.log('Huy Hoàng Auto 88 enhanced UX loaded successfully!');
+});
 
 // Auth Form Validation Functions
 function validateEmail(email) {

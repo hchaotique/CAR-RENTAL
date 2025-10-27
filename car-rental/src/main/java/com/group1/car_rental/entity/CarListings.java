@@ -67,4 +67,36 @@ public class CarListings {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public Cars getVehicle() { return vehicle; }
+    public String getTitle() { return title; }
+    public String getDescription() { return description; }
+    public Integer getPrice24hCents() { return price24hCents; }
+    public Integer getKmLimit24h() { return kmLimit24h; }
+    public Boolean getInstantBook() { return instantBook; }
+    public String getCancellationPolicy() { return cancellationPolicy; }
+    public String getStatus() { return status; }
+    public Point getHomeLocation() { return homeLocation; }
+    public CityEnum getHomeCity() { return homeCity; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public Integer getVersion() { return version; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setVehicle(Cars vehicle) { this.vehicle = vehicle; }
+    public void setTitle(String title) { this.title = title; }
+    public void setDescription(String description) { this.description = description; }
+    public void setPrice24hCents(Integer price24hCents) { this.price24hCents = price24hCents; }
+    public void setKmLimit24h(Integer kmLimit24h) { this.kmLimit24h = kmLimit24h; }
+    public void setInstantBook(Boolean instantBook) { this.instantBook = instantBook; }
+    public void setCancellationPolicy(String cancellationPolicy) { this.cancellationPolicy = cancellationPolicy; }
+    public void setStatus(String status) { this.status = status; }
+    public void setHomeLocation(Point homeLocation) { this.homeLocation = homeLocation; }
+    public void setHomeCity(CityEnum homeCity) { this.homeCity = homeCity; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setVersion(Integer version) { this.version = version; }
 }

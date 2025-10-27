@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -14,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/bookings")
+import com.group1.car_rental.entity.Cars;
+
+@Controller
+@RequestMapping("/bookings")
 public class BookingController {
 
     @Autowired
@@ -49,43 +53,48 @@ public class BookingController {
             .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // Helper method to check if user is authorized for booking
-    private void checkBookingAuthorization(Bookings booking, User currentUser, String requiredAction) {
-        boolean isGuest = booking.getGuest().getId().equals(currentUser.getId());
-        boolean isHost = booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId());
-
-        switch (requiredAction) {
-            case "VIEW":
-            case "CANCEL_GUEST":
-                if (!isGuest) {
-                    throw new RuntimeException("You are not authorized to perform this action on this booking");
-                }
-                break;
-            case "CONFIRM":
-            case "REJECT":
-                if (!isHost) {
-                    throw new RuntimeException("Only the host can perform this action");
-                }
-                if (!"HOST".equals(currentUser.getRole())) {
-                    throw new RuntimeException("Invalid role for this action");
-                }
-                break;
-            case "CHECKIN":
-            case "CHECKOUT":
-                if (!isGuest && !isHost) {
-                    throw new RuntimeException("You are not authorized to perform this action on this booking");
-                }
-                break;
-            default:
-                throw new RuntimeException("Unknown action authorization");
-        }
-    }
-
     // Helper method to validate KYC status
     private void validateKycStatus(User user) {
         UserProfile profile = user.getProfile();
         if (profile == null || !"VERIFIED".equals(profile.getKycStatus())) {
-            throw new RuntimeException("KYC verification required to perform booking operations");
+            throw new RuntimeException("KYC verification required");
+        }
+    }
+
+    // Helper method to check booking authorization
+    private void checkBookingAuthorization(Bookings booking, User currentUser, String action) {
+        switch (action) {
+            case "VIEW":
+                // Guest can view their own bookings, host can view bookings for their cars
+                if (!booking.getGuest().getId().equals(currentUser.getId()) &&
+                    !booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+                    throw new RuntimeException("Unauthorized to view this booking");
+                }
+                break;
+            case "CONFIRM":
+            case "REJECT":
+                // Only host can confirm/reject
+                if (!"HOST".equals(currentUser.getRole()) ||
+                    !booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+                    throw new RuntimeException("Only the host can " + action.toLowerCase() + " this booking");
+                }
+                break;
+            case "CHECKIN":
+            case "CHECKOUT":
+                // Guest or host can check-in/check-out
+                if (!booking.getGuest().getId().equals(currentUser.getId()) &&
+                    !booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+                    throw new RuntimeException("Unauthorized to " + action.toLowerCase() + " this booking");
+                }
+                break;
+            case "CANCEL_GUEST":
+                // Only guest can cancel their own booking
+                if (!booking.getGuest().getId().equals(currentUser.getId())) {
+                    throw new RuntimeException("Only the guest can cancel this booking");
+                }
+                break;
+            default:
+                throw new RuntimeException("Unknown action: " + action);
         }
     }
 
@@ -159,7 +168,8 @@ public class BookingController {
     }
 
     // 3. Create Booking
-    @PostMapping
+    @ResponseBody
+    @PostMapping(value = "/create", produces = "application/json")
     public ResponseEntity<Bookings> createBooking(
             @RequestBody Bookings booking,
             @RequestParam UUID holdToken,
@@ -184,7 +194,8 @@ public class BookingController {
     }
 
     // 4. Authorize Payment
-    @PostMapping("/{bookingId}/authorize")
+    @ResponseBody
+    @PostMapping("/{bookingId}/authorize", produces = "application/json")
     public ResponseEntity<Payments> authorizePayment(
             @PathVariable Long bookingId,
             @RequestParam String provider,
@@ -205,7 +216,8 @@ public class BookingController {
     }
 
     // 5. Confirm Booking (Host)
-    @PostMapping("/{bookingId}/confirm")
+    @ResponseBody
+    @PostMapping("/{bookingId}/confirm", produces = "application/json")
     public ResponseEntity<String> confirmBooking(
             @PathVariable Long bookingId,
             @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
@@ -227,7 +239,8 @@ public class BookingController {
     }
 
     // 6. Reject Booking (Host)
-    @PostMapping("/{bookingId}/reject")
+    @ResponseBody
+    @PostMapping("/{bookingId}/reject", produces = "application/json")
     public ResponseEntity<String> rejectBooking(
             @PathVariable Long bookingId,
             @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
@@ -249,7 +262,8 @@ public class BookingController {
     }
 
     // 6. Start Trip (Check-in)
-    @PostMapping("/{bookingId}/checkin")
+    @ResponseBody
+    @PostMapping("/{bookingId}/checkin", produces = "application/json")
     public ResponseEntity<String> checkIn(
             @PathVariable Long bookingId,
             @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
@@ -267,7 +281,8 @@ public class BookingController {
     }
 
     // 7. Complete Trip (Check-out)
-    @PostMapping("/{bookingId}/checkout")
+    @ResponseBody
+    @PostMapping("/{bookingId}/checkout", produces = "application/json")
     public ResponseEntity<String> checkOut(
             @PathVariable Long bookingId,
             @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
@@ -285,7 +300,8 @@ public class BookingController {
     }
 
     // 8. Cancel Booking
-    @PostMapping("/{bookingId}/cancel")
+    @ResponseBody
+    @PostMapping("/{bookingId}/cancel", produces = "application/json")
     public ResponseEntity<String> cancelBooking(
             @PathVariable Long bookingId,
             @RequestHeader("Idempotency-Key") String idempotencyKeyStr,
@@ -312,7 +328,8 @@ public class BookingController {
     }
 
     // Get My Bookings (Guest)
-    @GetMapping("/my-bookings")
+    @ResponseBody
+    @GetMapping("/my-bookings", produces = "application/json")
     public ResponseEntity<List<Bookings>> getMyBookings() {
         User currentUser = getCurrentUser();
         List<Bookings> bookings = bookingsRepository.findByGuestId(currentUser.getId());
@@ -320,7 +337,8 @@ public class BookingController {
     }
 
     // Get Host Bookings (Host)
-    @GetMapping("/host-bookings")
+    @ResponseBody
+    @GetMapping("/host-bookings", produces = "application/json")
     public ResponseEntity<List<Bookings>> getHostBookings() {
         User currentUser = getCurrentUser();
         if (!"HOST".equals(currentUser.getRole())) {
@@ -331,7 +349,8 @@ public class BookingController {
     }
 
     // Get Single Booking Details
-    @GetMapping("/{bookingId}")
+    @ResponseBody
+    @GetMapping("/{bookingId}", produces = "application/json")
     public ResponseEntity<Bookings> getBooking(@PathVariable Long bookingId) {
         Bookings booking = bookingsRepository.findById(bookingId)
             .orElseThrow(() -> new RuntimeException("Booking not found"));
@@ -343,7 +362,8 @@ public class BookingController {
     }
 
     // Calculate Price Quote (without holding)
-    @GetMapping("/price-quote")
+    @ResponseBody
+    @GetMapping("/price-quote", produces = "application/json")
     public ResponseEntity<Map<String, Object>> getPriceQuote(
             @RequestParam Long listingId,
             @RequestParam LocalDate startDate,
@@ -386,5 +406,26 @@ public class BookingController {
             "currency", "VND",
             "policy", listing.getCancellationPolicy()
         ));
+    }
+
+    @GetMapping("/confirm")
+    public String confirmBooking(Model model, @RequestParam Long carId,
+                                 @RequestParam String pickupDate,
+                                 @RequestParam String returnDate,
+                                 @RequestParam Integer days,
+                                 @RequestParam Integer rentalPrice,
+                                 @RequestParam Integer serviceFee,
+                                 @RequestParam Integer tax,
+                                 @RequestParam Integer totalPrice) {
+        Cars car = carsRepository.findById(carId).orElse(null);
+        model.addAttribute("car", car);
+        model.addAttribute("pickupDate", pickupDate);
+        model.addAttribute("returnDate", returnDate);
+        model.addAttribute("days", days);
+        model.addAttribute("rentalPrice", rentalPrice);
+        model.addAttribute("serviceFee", serviceFee);
+        model.addAttribute("tax", tax);
+        model.addAttribute("totalPrice", totalPrice);
+        return "booking/confirm";
     }
 }

@@ -53,4 +53,28 @@ public class UserProfile {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public User getUser() { return user; }
+    public String getFullName() { return fullName; }
+    public LocalDate getDob() { return dob; }
+    public byte[] getDriverLicenseNo() { return driverLicenseNo; }
+    public LocalDate getDriverLicenseExpiry() { return driverLicenseExpiry; }
+    public byte[] getAddressEncrypted() { return addressEncrypted; }
+    public String getKycStatus() { return kycStatus; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setUser(User user) { this.user = user; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setDob(LocalDate dob) { this.dob = dob; }
+    public void setDriverLicenseNo(byte[] driverLicenseNo) { this.driverLicenseNo = driverLicenseNo; }
+    public void setDriverLicenseExpiry(LocalDate driverLicenseExpiry) { this.driverLicenseExpiry = driverLicenseExpiry; }
+    public void setAddressEncrypted(byte[] addressEncrypted) { this.addressEncrypted = addressEncrypted; }
+    public void setKycStatus(String kycStatus) { this.kycStatus = kycStatus; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

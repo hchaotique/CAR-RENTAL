@@ -67,4 +67,36 @@ public class Bookings {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public CarListings getListing() { return listing; }
+    public User getGuest() { return guest; }
+    public Instant getStartAt() { return startAt; }
+    public Instant getEndAt() { return endAt; }
+    public Point getPickupLocation() { return pickupLocation; }
+    public Point getDropoffLocation() { return dropoffLocation; }
+    public String getStatus() { return status; }
+    public String getPolicySnapshot() { return policySnapshot; }
+    public String getPriceSnapshot() { return priceSnapshot; }
+    public UUID getHoldToken() { return holdToken; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public Integer getVersion() { return version; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setListing(CarListings listing) { this.listing = listing; }
+    public void setGuest(User guest) { this.guest = guest; }
+    public void setStartAt(Instant startAt) { this.startAt = startAt; }
+    public void setEndAt(Instant endAt) { this.endAt = endAt; }
+    public void setPickupLocation(Point pickupLocation) { this.pickupLocation = pickupLocation; }
+    public void setDropoffLocation(Point dropoffLocation) { this.dropoffLocation = dropoffLocation; }
+    public void setStatus(String status) { this.status = status; }
+    public void setPolicySnapshot(String policySnapshot) { this.policySnapshot = policySnapshot; }
+    public void setPriceSnapshot(String priceSnapshot) { this.priceSnapshot = priceSnapshot; }
+    public void setHoldToken(UUID holdToken) { this.holdToken = holdToken; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setVersion(Integer version) { this.version = version; }
 }

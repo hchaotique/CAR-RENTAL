@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác nhận Booking</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <a href="/" class="logo-text">Huy Hoàng auto 88</a>
+                </div>
+                <nav class="nav">
+                    <a href="/" class="nav-link">Trang chủ</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Xác nhận Booking</h1>
+        <p>Vui lòng kiểm tra thông tin booking của bạn trước khi thanh toán.</p>
+
+        <!-- Thông tin xe -->
+        <div class="car-info">
+            <h3>Thông tin xe</h3>
+            <p>Hãng xe: <span th:text="${car.make ?: 'N/A'}"></span></p>
+            <p>Model: <span th:text="${car.model ?: 'N/A'}"></span></p>
+            <p>Năm: <span th:text="${car.year ?: 'N/A'}"></span></p>
+            <p>Hộp số: <span th:text="${car.transmission ?: 'N/A'}"></span></p>
+            <p>Nhiên liệu: <span th:text="${car.fuelType ?: 'N/A'}"></span></p>
+            <img th:src="${car.imageUrl ?: 'https://via.placeholder.com/400x300?text=No+Image'}" alt="Hình ảnh xe" style="max-width: 300px; border-radius: 8px;">
+        </div>
+
+        <!-- Thông tin thuê -->
+        <div class="booking-info">
+            <h3>Thông tin thuê</h3>
+            <p>Ngày nhận xe: <span th:text="${pickupDate ?: 'Chưa chọn'}"></span></p>
+            <p>Ngày trả xe: <span th:text="${returnDate ?: 'Chưa chọn'}"></span></p>
+            <p>Số ngày thuê: <span th:text="${days ?: 0}"></span></p>
+            <p>Địa điểm: <span th:text="${car.city ?: 'N/A'}"></span></p>
+        </div>
+
+        <!-- Giá chi tiết -->
+        <div class="price-details">
+            <h3>Chi tiết thanh toán</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <p><strong>Giá thuê xe:</strong> <span th:text="${rentalPrice != null ? #numbers.formatDecimal(rentalPrice, 0, 'COMMA', 0, 'POINT') + ' VNĐ' : '0 VNĐ'}"></span></p>
+                <p><strong>Phí dịch vụ (10%):</strong> <span th:text="${serviceFee != null ? #numbers.formatDecimal(serviceFee, 0, 'COMMA', 0, 'POINT') + ' VNĐ' : '0 VNĐ'}"></span></p>
+                <p><strong>Thuế:</strong> <span th:text="${tax != null ? #numbers.formatDecimal(tax, 0, 'COMMA', 0, 'POINT') + ' VNĐ' : '0 VNĐ'}"></span></p>
+                <hr style="margin: 10px 0;">
+                <p style="font-size: 18px; font-weight: bold; color: #28C07B;"><strong>Tổng cộng:</strong> <span th:text="${totalPrice != null ? #numbers.formatDecimal(totalPrice, 0, 'COMMA', 0, 'POINT') + ' VNĐ' : '0 VNĐ'}"></span></p>
+            </div>
+        </div>
+
+        <!-- Nút xác nhận và thanh toán -->
+        <div style="text-align: center; margin-top: 30px;">
+            <a th:href="@{'/booking/payment-hold?carId=' + ${car.id} + '&pickupDate=' + ${pickupDate ?: ''} + '&returnDate=' + ${returnDate ?: ''} + '&totalAmount=' + ${totalPrice ?: 0}}" class="btn btn-primary" style="padding: 12px 30px; font-size: 16px; border-radius: 8px;">Xác nhận và Thanh toán</a>
+            <br>
+            <small style="color: #666; margin-top: 10px; display: block;">Bạn sẽ được chuyển đến trang thanh toán giữ chỗ</small>
+        </div>
+    </div>
+
+    <script th:src="@{/js/script.js}"></script>
+</body>
+</html>

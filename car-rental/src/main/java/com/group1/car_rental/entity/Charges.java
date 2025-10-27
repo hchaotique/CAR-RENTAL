@@ -41,4 +41,22 @@ public class Charges {
         this.amountCents = amountCents;
         this.createdAt = Instant.now();
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public Bookings getBooking() { return booking; }
+    public String getLineType() { return lineType; }
+    public Integer getAmountCents() { return amountCents; }
+    public String getCurrency() { return currency; }
+    public String getNote() { return note; }
+    public Instant getCreatedAt() { return createdAt; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setBooking(Bookings booking) { this.booking = booking; }
+    public void setLineType(String lineType) { this.lineType = lineType; }
+    public void setAmountCents(Integer amountCents) { this.amountCents = amountCents; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public void setNote(String note) { this.note = note; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

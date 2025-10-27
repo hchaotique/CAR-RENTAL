@@ -26,19 +26,20 @@
     <div class="container" style="padding: 20px;">
         <h1>Kết quả tìm kiếm cho <span th:text="${location}"></span></h1>
         <div class="car-grid" th:if="${cars != null and !cars.isEmpty()}">
-            <div class="car-card" th:each="cars : ${cars}">
+            <div class="car-card" th:each="car : ${cars}">
                 <div class="car-image">
-                    <img src="https://via.placeholder.com/300x200?text=Vehicle+Image" th:alt="${cars.make} + ' ' + ${cars.model}">
+                    <img th:src="${car.imageUrl ?: 'https://via.placeholder.com/300x200?text=No+Image'}" th:alt="${car.make} + ' ' + ${car.model}">
                 </div>
                 <div class="car-info">
-                    <h3 th:text="${cars.make} + ' ' + ${cars.model}"></h3>
+                    <h3 th:text="${car.make} + ' ' + ${car.model} + ' ' + ${car.year ?: ''}"></h3>
                     <div class="rating">
-                        <span class="stars">4.8 ⭐</span>
-                        <span class="reviews">(10 chuyến)</span>
+                        <span class="stars" th:text="${#numbers.formatDecimal(car.rating ?: 4.5, 1, 1)} + ' ⭐'">4.5 ⭐</span>
+                        <span class="reviews" th:text="'(' + ${car.numReviews ?: 0} + ' chuyến)'">(0 chuyến)</span>
                     </div>
                     <div class="price">
-                        <span class="price-value">1.000.000đ/ngày</span>
+                        <span class="price-value" th:text="${car.dailyPrice != null ? #numbers.formatDecimal(car.dailyPrice, 0, 'COMMA', 0, 'POINT') + ' VNĐ/ngày' : 'Liên hệ'}">Liên hệ</span>
                     </div>
+                    <a th:href="@{'/booking/confirm?carId=' + ${car.id} + '&pickupDate=' + ${pickupDate ?: ''} + '&returnDate=' + ${returnDate ?: ''} + '&days=' + ${days ?: 1} + '&rentalPrice=' + ${car.dailyPrice ?: 0} + '&serviceFee=' + ${(car.dailyPrice ?: 0) * 0.1} + '&tax=0&totalPrice=' + ${(car.dailyPrice ?: 0) * 1.1}}" class="book-btn">Đặt xe</a>
                 </div>
             </div>
         </div>

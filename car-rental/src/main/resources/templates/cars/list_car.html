@@ -99,7 +99,7 @@
                         <td th:text="${vehicle.transmission}"></td>
                         <td th:text="${vehicle.fuelType}"></td>
                         <td th:text="${vehicle.seats}"></td>
-                        <td th:text="${#numbers.formatDecimal(vehicle.dailyPrice, 0, 'COMMA', 2, 'POINT')} + ' $'"></td>
+                        <td th:text="${vehicle.dailyPrice != null ? #numbers.formatDecimal(vehicle.dailyPrice, 0, 'COMMA', 0, 'POINT') + ' VNĐ' : 'Chưa cập nhật'}"></td>
                         <td th:text="${vehicle.city}"></td>
                         <td>
                             <div class="btn-action">

@@ -23,8 +23,9 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/register", "/login", "/search", "/css/**", "/js/**", "/images/**").permitAll()
+                .requestMatchers("/", "/register", "/login", "/forgot-password", "/search", "/css/**", "/js/**", "/images/**").permitAll()
                 .requestMatchers("/cars/list", "/cars/add", "/cars/edit/**", "/cars/delete/**").hasRole("HOST")
+                .requestMatchers("/bookings/confirm", "/booking/payment-hold").hasAnyRole("CUSTOMER", "HOST")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
@@ -37,7 +38,17 @@ public class SecurityConfig {
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout=true")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
                 .permitAll()
+            )
+            .sessionManagement(session -> session
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(false)
+                .expiredUrl("/login?expired=true")
+            )
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/api/**") // For future API endpoints
             )
             .userDetailsService(dbUserDetailsService);
 

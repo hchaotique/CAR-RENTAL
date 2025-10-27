@@ -48,4 +48,26 @@ public class Payments {
         this.provider = provider;
         this.createdAt = Instant.now();
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public Bookings getBooking() { return booking; }
+    public String getType() { return type; }
+    public Integer getAmountCents() { return amountCents; }
+    public String getCurrency() { return currency; }
+    public String getProvider() { return provider; }
+    public String getProviderRef() { return providerRef; }
+    public String getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setBooking(Bookings booking) { this.booking = booking; }
+    public void setType(String type) { this.type = type; }
+    public void setAmountCents(Integer amountCents) { this.amountCents = amountCents; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public void setProvider(String provider) { this.provider = provider; }
+    public void setProviderRef(String providerRef) { this.providerRef = providerRef; }
+    public void setStatus(String status) { this.status = status; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

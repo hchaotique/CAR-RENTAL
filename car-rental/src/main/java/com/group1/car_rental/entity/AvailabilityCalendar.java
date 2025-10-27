@@ -30,6 +30,18 @@ public class AvailabilityCalendar {
         this.id = id;
     }
 
+    // Getters
+    public AvailabilityCalendarId getId() { return id; }
+    public String getStatus() { return status; }
+    public UUID getHoldToken() { return holdToken; }
+    public LocalDateTime getHoldExpireAt() { return holdExpireAt; }
+
+    // Setters
+    public void setId(AvailabilityCalendarId id) { this.id = id; }
+    public void setStatus(String status) { this.status = status; }
+    public void setHoldToken(UUID holdToken) { this.holdToken = holdToken; }
+    public void setHoldExpireAt(LocalDateTime holdExpireAt) { this.holdExpireAt = holdExpireAt; }
+
     @Embeddable
     @Data
     @NoArgsConstructor
@@ -45,5 +57,13 @@ public class AvailabilityCalendar {
             this.listingId = listingId;
             this.day = day;
         }
+
+        // Getters for embedded ID
+        public Long getListingId() { return listingId; }
+        public LocalDate getDay() { return day; }
+
+        // Setters for embedded ID
+        public void setListingId(Long listingId) { this.listingId = listingId; }
+        public void setDay(LocalDate day) { this.day = day; }
     }
 }

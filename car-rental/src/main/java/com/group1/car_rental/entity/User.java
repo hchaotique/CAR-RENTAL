@@ -61,4 +61,30 @@ public class User {
         this.updatedAt = Instant.now();
         this.version = 0;
     }
+
+    // Getters
+    public Long getId() { return id; }
+    public String getEmail() { return email; }
+    public String getPhone() { return phone; }
+    public String getRole() { return role; }
+    public Boolean getIsActive() { return isActive; }
+    public String getPasswordHash() { return passwordHash; }
+    public Boolean getTwofaEnabled() { return twofaEnabled; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public Integer getVersion() { return version; }
+    public UserProfile getProfile() { return profile; }
+
+    // Setters
+    public void setId(Long id) { this.id = id; }
+    public void setEmail(String email) { this.email = email; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public void setRole(String role) { this.role = role; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setTwofaEnabled(Boolean twofaEnabled) { this.twofaEnabled = twofaEnabled; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setVersion(Integer version) { this.version = version; }
+    public void setProfile(UserProfile profile) { this.profile = profile; }
 }

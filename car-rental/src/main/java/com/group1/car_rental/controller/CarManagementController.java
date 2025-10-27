@@ -83,11 +83,11 @@ public class CarManagementController {
             form.setImageUrl(car.getImageUrl());
             form.setCity(car.getCity());
             model.addAttribute("carForm", form);
-            return "cars/add";
+            return "cars/edit";
         } catch (IllegalArgumentException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("carForm", new CarsForm());
-            return "cars/add";
+            return "cars/edit";
         }
     }
 
@@ -100,7 +100,7 @@ public class CarManagementController {
         Long ownerId = getCurrentUserId();
         if (bindingResult.hasErrors()) {
             logger.warn("Validation errors during car update: {}", bindingResult.getAllErrors());
-            return "cars/add";
+            return "cars/edit";
         }
         try {
             carsService.updateVehicle(id, form, ownerId);
@@ -108,7 +108,7 @@ public class CarManagementController {
             return "redirect:/cars/list";
         } catch (IllegalArgumentException e) {
             model.addAttribute("error", e.getMessage());
-            return "cars/add";
+            return "cars/edit";
         }
     }
 

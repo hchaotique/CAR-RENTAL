@@ -10,6 +10,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Skip Link for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -130,8 +132,8 @@
             <div class="info-grid">
                 <div class="info-card">
                     <img src="https://via.placeholder.com/100" alt="Safe Driving">
-                    <h3>Lái xe an toàn cùng Mioto</h3>
-                    <p>Chuyến đi trên Mioto được bảo vệ với Gói bảo hiểm thuê xe tự lái MIC & DBV (VNI).</p>
+                    <h3>Lái xe an toàn cùng Huy Hoàng Auto 88</h3>
+                    <p>Chuyến đi trên Huy Hoàng Auto 88 được bảo vệ với Gói bảo hiểm thuê xe tự lái MIC & DBV (VNI).</p>
                 </div>
                 <div class="info-card">
                     <img src="https://via.placeholder.com/100" alt="Easy Booking">
@@ -141,7 +143,26 @@
                 <div class="info-card">
                     <img src="https://via.placeholder.com/100" alt="Simple Process">
                     <h3>Thủ tục đơn giản</h3>
-                    <p>Chỉ cần có CCCD gắn chip (Hoặc...(truncated 1440 characters)...button class="nav-arrow next"><i class="fas fa-chevron-right"></i></button>
+                    <p>Chỉ cần có CCCD gắn chip (Hoặc Passport) và GPLX còn hạn.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        <div class="container">
+            <!-- Car Section -->
+            <section class="car-section">
+                <div class="section-header">
+                    <h2>Xe nổi bật gần đây</h2>
+                    <div class="section-nav">
+                        <button class="nav-arrow prev">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button class="nav-arrow next">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="car-grid" th:if="${cars != null and !cars.isEmpty()}">
@@ -154,13 +175,13 @@
                         <div class="car-info">
                             <h3 th:text="|${car.make} ${car.model} ${car.year ?: ''}|">Vehicle Name</h3>
                             <div class="rating">
-                                <span class="stars" th:text="|${#numbers.formatDecimal(car.rating, 1, 2)} ⭐|">4.5 ⭐</span>
-                                <span class="reviews" th:text="|(${car.numReviews} chuyến)|">(0 chuyến)</span>
+                                <span class="stars" th:text="|${#numbers.formatDecimal(car.rating ?: 4.5, 1, 1)} ⭐|">4.5 ⭐</span>
+                                <span class="reviews" th:text="|(${car.numReviews ?: 0} chuyến)|">(0 chuyến)</span>
                             </div>
                             <div class="price">
-                                <span class="price-value" th:text="'₫ cho 3 ngày'">Price for 3 days</span>
+                                <span class="price-value" th:text="${car.dailyPrice != null ? #numbers.formatDecimal(car.dailyPrice, 0, 'COMMA', 0, 'POINT') + ' VNĐ/ngày' : 'Liên hệ'}">Liên hệ</span>
                             </div>
-                            <a th:href="@{/search(vehicleId=${car.id})}" class="book-btn">Đặt xe</a>
+                            <a th:href="@{'/booking/confirm?carId=' + ${car.id} + '&pickupDate=' + ${#dates.format(#dates.createNow(), 'yyyy-MM-dd')} + '&returnDate=' + ${#dates.format(#dates.createNow().plusDays(3), 'yyyy-MM-dd')} + '&days=3&rentalPrice=' + ${car.dailyPrice ?: 0} + '&serviceFee=' + ${(car.dailyPrice ?: 0) * 0.1} + '&tax=0&totalPrice=' + ${(car.dailyPrice ?: 0) * 1.1}}" class="book-btn">Đặt xe</a>
                         </div>
                     </div>
                 </div>

@@ -45,6 +45,10 @@ public class CarListings {
     @Column(name = "home_location", nullable = false, columnDefinition = "geography")
     private Point homeLocation;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "home_city", nullable = false, length = 20)
+    private CityEnum homeCity;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -54,11 +58,12 @@ public class CarListings {
     @Version
     private Integer version = 0;
 
-    public CarListings(Cars vehicle, String title, Integer price24hCents, Point homeLocation) {
+    public CarListings(Cars vehicle, String title, Integer price24hCents, Point homeLocation, CityEnum homeCity) {
         this.vehicle = vehicle;
         this.title = title;
         this.price24hCents = price24hCents;
         this.homeLocation = homeLocation;
+        this.homeCity = homeCity;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }

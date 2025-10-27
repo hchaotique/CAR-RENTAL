@@ -20,4 +20,8 @@ public interface AvailabilityCalendarRepository extends JpaRepository<Availabili
 
     @Query("SELECT a FROM AvailabilityCalendar a WHERE a.id.listingId = :listingId AND a.id.day = :day")
     AvailabilityCalendar findByListingIdAndDay(@Param("listingId") Long listingId, @Param("day") LocalDate day);
+
+    // Find expired holds for cron job
+    @Query("SELECT a FROM AvailabilityCalendar a WHERE a.status = :status AND a.holdExpireAt < :now")
+    List<AvailabilityCalendar> findByStatusAndHoldExpireAtBefore(@Param("status") String status, @Param("now") java.time.LocalDateTime now);
 }

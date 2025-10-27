@@ -12,4 +12,6 @@ public interface PayoutsRepository extends JpaRepository<Payouts, Long> {
     List<Payouts> findByOwnerId(Long ownerId);
 
     List<Payouts> findByBookingId(Long bookingId);
+
+    List<Payouts> findByBookingIdAndStatus(Long bookingId, String status);
 }

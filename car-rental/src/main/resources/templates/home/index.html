@@ -145,22 +145,22 @@
                     </div>
                 </div>
                 <div class="car-grid" th:if="${cars != null and !cars.isEmpty()}">
-                    <div th:each="cars : ${cars}" class="car-card" th:attr="data-cars-id=${cars.id}">
+                    <div th:each="car : ${cars}" class="car-card" th:attr="data-car-id=${car.id}">
                         <div class="car-image">
-                            <img th:src="${cars.imageUrl} ?: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=300&h=200&fit=crop'"
-                                 th:alt="${cars.make} ${cars.model}"
-                                 alt="{cars-image}">
+                            <img th:src="${car.imageUrl} ?: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=300&h=200&fit=crop'"
+                                 th:alt="|${car.make} ${car.model}|"
+                                 alt="car-image">
                         </div>
                         <div class="car-info">
-                            <h3 th:text="${cars.make} + ' ' + ${cars.model} + (${cars.year} != null ? ' ' + ${cars.year} : '')">Vehicle Name</h3>
+                            <h3 th:text="|${car.make} ${car.model} ${car.year ?: ''}|">Vehicle Name</h3>
                             <div class="rating">
-                                <span class="stars" th:text="${#numbers.formatDecimal(cars.rating, 1, 2)} + ' ⭐'">4.5 ⭐</span>
-                                <span class="reviews" th:text="('(' + ${cars.numReviews} + ' chuyến)')">(0 chuyến)</span>
+                                <span class="stars" th:text="|${#numbers.formatDecimal(car.rating, 1, 2)} ⭐|">4.5 ⭐</span>
+                                <span class="reviews" th:text="|(${car.numReviews} chuyến)|">(0 chuyến)</span>
                             </div>
                             <div class="price">
-                                <span class="price-value" th:text="(${cars.dailyPrice} * 3) + '₫ cho 3 ngày'">Price for 3 days</span>
+                                <span class="price-value" th:text="'₫ cho 3 ngày'">Price for 3 days</span>
                             </div>
-                            <a th:href="@{/search(vehicleId=${cars.id})}" class="book-btn">Đặt xe</a>
+                            <a th:href="@{/search(vehicleId=${car.id})}" class="book-btn">Đặt xe</a>
                         </div>
                     </div>
                 </div>

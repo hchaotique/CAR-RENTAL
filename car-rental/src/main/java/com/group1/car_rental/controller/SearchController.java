@@ -13,7 +13,7 @@ import com.group1.car_rental.dto.CarsDto;
 @RequiredArgsConstructor
 public class SearchController {
 
-    private final CarsService vehicleService;
+    private final CarsService CarsService;
 
     @GetMapping("/search")
     public String search(@RequestParam String location,
@@ -24,8 +24,8 @@ public class SearchController {
                          @RequestParam(required = false) String latitude,
                          @RequestParam(required = false) String longitude,
                          Model model) {
-        List<CarsDto> searchResults = vehicleService.searchByLocation(location);
-        model.addAttribute("vehicles", searchResults);
+        List<CarsDto> searchResults = CarsService.searchByLocation(location);
+        model.addAttribute("Cars", searchResults);
         model.addAttribute("location", location);
         model.addAttribute("pickupDate", pickupDate);
         model.addAttribute("pickupTime", pickupTime);

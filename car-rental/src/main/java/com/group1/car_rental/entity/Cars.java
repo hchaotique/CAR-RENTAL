@@ -19,10 +19,10 @@ public class Cars {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
-    @Column(name = "vin_encrypted")
+    @Column(name = "vin_protected")
     private byte[] vinEncrypted;
 
-    @Column(name = "plate_masked")
+    @Column(name = "plate_number")
     private String plateMasked;
 
     @Column(name = "make", nullable = false, length = 50)

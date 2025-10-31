@@ -17,7 +17,7 @@ public class HomeController {
     @GetMapping("/")
     public String home(Model model) {
         List<CarsDto> vehicles = vehicleService.getAllVehicles();
-        model.addAttribute("vehicles", vehicles);
+        model.addAttribute("cars", vehicles);
         return "home/index";
     }
 }

@@ -111,6 +111,29 @@ public class UserService {
         userRepository.save(user);
     }
 
+    // Dán phương thức này vào file UserService.java của bạn
+
+@Transactional
+public void changePassword(String oldPassword, String newPassword) {
+    // 1. Lấy user hiện tại
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String email = ((UserDetails) auth.getPrincipal()).getUsername();
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
+
+    // 2. Kiểm tra mật khẩu cũ
+    if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+        throw new IllegalArgumentException("Mật khẩu cũ không chính xác.");
+    }
+
+    // 3. Mã hóa và lưu mật khẩu mới
+    user.setPasswordHash(passwordEncoder.encode(newPassword));
+    user.setUpdatedAt(java.time.Instant.now());
+    userRepository.save(user);
+    
+    logger.info("Đổi mật khẩu thành công cho user: {}", email);
+}
+
     public static class DuplicateEmailException extends RuntimeException {
         public DuplicateEmailException(String message) {
             super(message);

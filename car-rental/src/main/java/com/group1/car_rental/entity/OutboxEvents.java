@@ -3,11 +3,13 @@ package com.group1.car_rental.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.Instant;
 
 @Entity
 @Table(name = "outbox_events")
+@Setter
 @Data
 @NoArgsConstructor
 public class OutboxEvents {

@@ -26,5 +26,10 @@ public interface BookingsRepository extends JpaRepository<Bookings, Long> {
 
     List<Bookings> findByGuestId(Long guestId);
 
-    List<Bookings> findByListingVehicleOwnerId(Long ownerId);
+    @Query("SELECT b FROM Bookings b " +
+           "JOIN FETCH b.guest g " +
+           "JOIN FETCH b.listing l " +
+           "JOIN FETCH l.vehicle v " +
+           "WHERE v.owner.id = :ownerId")
+    List<Bookings> findByListingVehicleOwnerId(@Param("ownerId") Long ownerId);
 }

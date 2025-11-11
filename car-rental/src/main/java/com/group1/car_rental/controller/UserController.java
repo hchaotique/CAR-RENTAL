@@ -13,6 +13,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.group1.car_rental.entity.User;
 
 @Controller
 public class UserController {
@@ -71,17 +74,76 @@ public class UserController {
         }
     }
 
+    // Mã mới đã sửa
     @GetMapping("/login")
     public String showLoginForm(Model model, HttpServletRequest request) {
+        
+        // KIỂM TRA XEM ĐÃ LOGIN CHƯA
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && 
+            !(authentication.getPrincipal() instanceof String && "anonymousUser".equals(authentication.getPrincipal()))) {
+            
+            // NẾU RỒI, ĐÁ VỀ TRANG CHỦ
+            return "redirect:/";
+        }
+
+        // Nếu chưa login, hiển thị trang login
         model.addAttribute("error", request.getParameter("error"));
         return "user/login";
     }
 
     @GetMapping("/profile")
     public String showProfileForm(Model model) {
-        model.addAttribute("user", userService.getCurrentUserWithProfile());
-        model.addAttribute("profileForm", new ProfileUpdateForm());
+        User currentUser = userService.getCurrentUserWithProfile();
+        model.addAttribute("user", currentUser); 
+
+        ProfileUpdateForm form = new ProfileUpdateForm();
+        form.setFullName(currentUser.getProfile().getFullName());
+        form.setPhone(currentUser.getPhone());
+        
+        model.addAttribute("profileForm", form);
+        
         return "user/profile";
+    }
+
+    // Thêm route mới cho trang đổi mật khẩu
+    @GetMapping("/change-password")
+    public String showChangePasswordForm(Model model) {
+        model.addAttribute("passwordChangeForm", new PasswordChangeForm());
+        return "user/change-password"; // Trang mới: user/change-password.html
+    }
+
+    // Đổi route POST thành /change-password
+    @PostMapping("/change-password")
+    public String handleChangePassword(@Valid @ModelAttribute("passwordChangeForm") PasswordChangeForm form,
+                                       BindingResult bindingResult,
+                                       Model model,
+                                       RedirectAttributes redirectAttributes) {
+
+        // Nếu validation cơ bản (như @NotBlank) thất bại
+        if (bindingResult.hasErrors()) {
+            return "user/change-password"; // Trả về trang đổi mật khẩu với lỗi
+        }
+
+        // Kiểm tra mật khẩu xác nhận
+        if (!form.getNewPassword().equals(form.getConfirmNewPassword())) {
+            model.addAttribute("passwordError", "Mật khẩu mới không khớp.");
+            return "user/change-password";
+        }
+
+        try {
+            // Gọi service để đổi mật khẩu
+            userService.changePassword(form.getOldPassword(), form.getNewPassword());
+            redirectAttributes.addFlashAttribute("success", "Đổi mật khẩu thành công!");
+            return "redirect:/profile";
+        } catch (IllegalArgumentException e) { // Bắt lỗi (ví dụ: mật khẩu cũ sai)
+            model.addAttribute("passwordError", e.getMessage());
+            return "user/change-password";
+        } catch (Exception e) {
+            logger.error("Lỗi đổi mật khẩu: {}", e.getMessage(), e);
+            model.addAttribute("passwordError", "Lỗi hệ thống, vui lòng thử lại.");
+            return "user/change-password";
+        }
     }
 
     @PostMapping("/profile")
@@ -90,19 +152,21 @@ public class UserController {
                                 Model model,
                                 RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
+            // PHẢI thêm lại object 'user' vì trang profile.html cần nó
+            // (Object 'profileForm' đã tự động được thêm vào model rồi)
             model.addAttribute("user", userService.getCurrentUserWithProfile());
-            return "user/profile";
+            return "user/profile"; // Giờ thì trang render sẽ không lỗi
         }
         try {
             userService.updateProfile(form.getFullName(), form.getPhone());
             redirectAttributes.addFlashAttribute("success", "Cập nhật thành công");
             return "redirect:/profile";
         } catch (IllegalArgumentException e) {
-            model.addAttribute("user", userService.getCurrentUserWithProfile());
+            model.addAttribute("user", userService.getCurrentUserWithProfile()); // Thêm ở đây
             model.addAttribute("error", e.getMessage());
             return "user/profile";
         } catch (Exception e) {
-            model.addAttribute("user", userService.getCurrentUserWithProfile());
+            model.addAttribute("user", userService.getCurrentUserWithProfile()); // Và thêm ở đây
             model.addAttribute("error", "Lỗi hệ thống. Vui lòng thử lại.");
             return "user/profile";
         }
@@ -153,11 +217,37 @@ public class UserController {
 
         @jakarta.validation.constraints.Size(max = 30, message = "Số điện thoại quá dài")
         private String phone;
+        public ProfileUpdateForm() {
+        }
 
+        public ProfileUpdateForm(String fullName, String phone) {
+            this.fullName = fullName;
+            this.phone = phone;
+        }
         // Getters and setters
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
         public String getPhone() { return phone; }
         public void setPhone(String phone) { this.phone = phone; }
+    }
+
+    public static class PasswordChangeForm {
+        @jakarta.validation.constraints.NotBlank(message = "Mật khẩu cũ không được trống")
+        private String oldPassword;
+
+        @jakarta.validation.constraints.NotBlank(message = "Mật khẩu mới không được trống")
+        @jakarta.validation.constraints.Size(min = 8, max = 60, message = "Mật khẩu 8–60 ký tự")
+        private String newPassword;
+
+        @jakarta.validation.constraints.NotBlank(message = "Xác nhận mật khẩu không được trống")
+        private String confirmNewPassword;
+
+        // Getters and Setters
+        public String getOldPassword() { return oldPassword; }
+        public void setOldPassword(String oldPassword) { this.oldPassword = oldPassword; }
+        public String getNewPassword() { return newPassword; }
+        public void setNewPassword(String newPassword) { this.newPassword = newPassword; }
+        public String getConfirmNewPassword() { return confirmNewPassword; }
+        public void setConfirmNewPassword(String confirmNewPassword) { this.confirmNewPassword = confirmNewPassword; }
     }
 }

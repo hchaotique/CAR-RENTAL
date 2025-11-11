@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -37,7 +38,7 @@ public class BookingDto {
             private String transmission;
             private String fuelType;
             private Byte seats;
-            private String imageUrl;
+            private List<String> imageUrls;
             private UserDto owner;
 
             @Data

@@ -2,6 +2,10 @@ package com.group1.car_rental.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class CarsForm {
@@ -35,10 +39,18 @@ public class CarsForm {
     @Positive(message = "Giá thuê phải lớn hơn 0")
     private Double dailyPrice;
 
-    @Size(max = 255, message = "URL ảnh quá dài")
-    private String imageUrl;
+    private List<MultipartFile> imageFiles = new ArrayList<>(); // Upload mới
+    private List<String> existingImageUrls = new ArrayList<>(); // Ảnh cũ (khi edit)
+    private List<String> imageUrls = new ArrayList<>();
 
     @NotBlank(message = "Thành phố không được trống")
     @Size(max = 100, message = "Tên thành phố quá dài")
     private String city;
+
+    @Size(max = 20, message = "Biển số quá dài")
+    private String plateMasked;
+
+    private byte[] vinEncrypted; // Field cuối cùng lưu byte[]
+
+    private String vinString; // Field tạm để input từ form, sau convert sang vinEncrypted
 }

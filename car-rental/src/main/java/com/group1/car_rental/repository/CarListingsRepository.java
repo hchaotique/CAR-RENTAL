@@ -2,19 +2,28 @@ package com.group1.car_rental.repository;
 
 import com.group1.car_rental.entity.CarListings;
 import com.group1.car_rental.entity.CityEnum;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
-@Repository
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 public interface CarListingsRepository extends JpaRepository<CarListings, Long> {
+    boolean existsByVehicleIdAndStatus(Long vehicleId, CarListings.ListingStatus status);
 
     // Find active listings by city, ordered by price
     List<CarListings> findByHomeCityAndStatusOrderByPrice24hCentsAsc(CityEnum homeCity, String status);
+    List<CarListings> findByHomeCityContainingIgnoreCaseAndStatus(String homeCity, CarListings.ListingStatus status);
+    // Thêm method
+    List<CarListings> findByVehicleOwnerId(Long ownerId);
+    Optional<CarListings> findByIdAndVehicleOwnerId(Long id, Long ownerId);
+
+    // Thêm
+    List<CarListings> findByStatus(CarListings.ListingStatus status);
+    List<CarListings> findByHomeCityAndStatus(String homeCity, CarListings.ListingStatus status);
 
     // Find available listings in city with date filtering
     @Query("SELECT DISTINCT l FROM CarListings l " +

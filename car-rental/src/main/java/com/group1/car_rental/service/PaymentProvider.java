@@ -1,6 +1,7 @@
 package com.group1.car_rental.service;
 
 import com.group1.car_rental.entity.Bookings;
+import com.group1.car_rental.entity.Payments;
 
 public interface PaymentProvider {
 

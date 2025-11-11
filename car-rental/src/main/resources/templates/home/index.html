@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turo - Thuê xe ô tô</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+<header class="header">
+    <div class="container">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-text">Huy Hoàng Auto 88</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-link">Huy Hoàng Auto 88</a>
+            </nav>
+            <div class="header-actions">
+                <button class="menu-btn"><i class="fas fa-bars"></i></button>
+                <div class="user-dropdown-container">
+                    <button class="user-btn">
+                        <span sec:authorize="isAuthenticated()" th:text="${#authentication.name}" class="username-display"></span>
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <div class="user-dropdown-menu">
+                        <div sec:authorize="isAnonymous()">
+                            <a th:href="@{/login}">Đăng nhập</a>
+                            <a th:href="@{/register}">Đăng ký</a>
+                            <a th:href="@{/register(role='HOST')}">Trở thành chủ xe</a>
+                        </div>
+                        <div sec:authorize="isAuthenticated()">
+                            <a th:href="@{/profile}">Hồ sơ của tôi</a>
+                            <a th:href="@{/change-password}">Đổi mật khẩu</a>
+                            <form th:action="@{/logout}" method="post" class="logout-form">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit" class="logout-button-as-link">Đăng xuất</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="hero-background">
+        <div class="hero-overlay"></div>
+    </div>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-title">Đừng lãng phí thời gian ở đại lý</h1>
+            <p class="hero-subtitle">Thuê chiếc xe bạn muốn, ở bất cứ đâu bạn muốn</p>
+            <form class="search-form" th:action="@{/search}" method="get">
+                <div class="search-field">
+                    <label>Địa điểm</label>
+                    <input type="text" id="location" name="location" placeholder="Thành phố, sân bay, địa chỉ hoặc khách sạn" required>
+                </div>
+                <div class="search-field">
+                    <label>Ngày đi</label>
+                    <input type="date" id="pickupDate" name="pickupDate" required>
+                </div>
+                <div class="search-field">
+                    <label></label>
+                    <input type="time" id="pickupTime" name="pickupTime" required>
+                </div>
+                <div class="search-field">
+                    <label>Ngày về</label>
+                    <input type="date" id="returnDate" name="returnDate" required>
+                </div>
+                <div class="search-field">
+                    <label></label>
+                    <input type="time" id="returnTime" name="returnTime" required>
+                </div>
+                <button type="submit" class="search-btn"><i class="fas fa-search"></i></button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="car-section">
+    <div class="container">
+        <h2 class="section-title">Xe phổ biến</h2>
+        <div class="nav-arrows">
+            <button class="nav-arrow prev"><i class="fas fa-chevron-left"></i></button>
+            <button class="nav-arrow next"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="car-grid" th:if="${listings != null and !listings.isEmpty()}">
+                <div th:each="listing : ${listings}" class="car-card" th:attr="data-listing-id=${listing.id}">
+                    <div class="car-image">
+                        <img th:src="${listing.imageUrls != null and not #lists.isEmpty(listing.imageUrls)} ? ${listing.imageUrls[0]} : '/images/default-car.jpg'" 
+                             alt="Car Image" class="img-fluid" style="height: 200px; object-fit: cover;">
+                    </div>
+                    <div class="car-info">
+                        <h3 th:text="${listing.title}">Tiêu đề bài đăng</h3>
+                        <p th:text="${listing.make + ' ' + listing.model + (listing.year != null ? ' ' + listing.year : '')}">Xe: Make Model Year</p>
+                        <p th:text="${listing.homeCity}">Vị trí: Thành phố</p>
+                        <div class="rating">
+    <span class="stars">Chưa có đánh giá</span>
+    <span class="reviews">(0 chuyến)</span>
+</div>
+                        <div class="price">
+                            <span class="price-value" th:text="${listing.price24hCents != null ? (#numbers.formatDecimal((listing.price24hCents / 100.0) * 3, 1, 0) + '₫ cho 3 ngày') : 'Liên hệ'}">Price for 3 days</span>
+                        </div>
+                        <button type="button" class="book-btn" th:attr="data-listing-id=${listing.id}" onclick="openBookingModal(this)">Đặt xe</button>
+                    </div>
+                </div>
+            </div>
+        <div th:if="${listings == null or listings.isEmpty()}" class="no-cars">
+            <p>Không có bài đăng nào khả dụng. Hãy thử tìm kiếm.</p>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <!-- Giữ nguyên phần footer từ file 2 -->
+    <div class="container">
+        <div class="footer-content">
+            <!-- ... (toàn bộ nội dung footer cũ) ... -->
+        </div>
+        <div class="footer-bottom">
+            <p>©2025 Huy Hoàng Auto 88</p>
+            <div class="footer-links">
+                <a href="#">Điều khoản dịch vụ</a>
+                <a href="#">Chính sách bảo mật</a>
+                <a href="#">Tùy chọn cookie</a>
+                <a href="#">Không bán hoặc chia sẻ thông tin cá nhân của tôi</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Booking Modal (từ file thứ nhất) -->
+<div id="bookingModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Chọn ngày thuê xe</h2>
+            <span class="close" onclick="closeBookingModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="bookingForm">
+                <input type="hidden" id="selectedCarId" name="listingId">
+                <div class="form-group">
+                    <label for="modalPickupDate">Ngày nhận xe:</label>
+                    <input type="date" id="modalPickupDate" name="pickupDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="modalPickupTime">Giờ nhận xe:</label>
+                    <input type="time" id="modalPickupTime" name="pickupTime" value="09:00" required>
+                </div>
+                <div class="form-group">
+                    <label for="modalReturnDate">Ngày trả xe:</label>
+                    <input type="date" id="modalReturnDate" name="returnDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="modalReturnTime">Giờ trả xe:</label>
+                    <input type="time" id="modalReturnTime" name="returnTime" value="18:00" required>
+                </div>
+                <button type="button" onclick="proceedToBooking()" class="modal-btn">Tiếp tục đặt xe</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/script.js}"></script>
+<script>
+    function openBookingModal(button) {
+        const listingId = button.getAttribute('data-listing-id');
+        document.getElementById('selectedCarId').value = listingId;
+        document.getElementById('bookingModal').style.display = 'block';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('modalPickupDate').min = today;
+        document.getElementById('modalReturnDate').min = today;
+    }
+
+    function closeBookingModal() {
+        document.getElementById('bookingModal').style.display = 'none';
+    }
+
+    function proceedToBooking() {
+        const id = document.getElementById('selectedCarId').value;
+        const pickupDate = document.getElementById('modalPickupDate').value;
+        const returnDate = document.getElementById('modalReturnDate').value;
+        const pickupTime = document.getElementById('modalPickupTime').value;
+        const returnTime = document.getElementById('modalReturnTime').value;
+
+        if (!pickupDate || !returnDate) {
+            alert('Vui lòng chọn ngày nhận và trả xe');
+            return;
+        }
+
+        const button = document.querySelector('.modal-btn');
+        button.disabled = true;
+        button.textContent = 'Đang xử lý...';
+
+        const url = `/bookings/create?listingId=${id}&pickupDate=${pickupDate}&returnDate=${returnDate}&pickupTime=${pickupTime}&returnTime=${returnTime}`;
+        window.location.href = url;
+    }
+
+    window.onclick = function (event) {
+        const modal = document.getElementById('bookingModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+</script>
+
+<style>
+    /* Giữ nguyên phần style modal từ file thứ nhất */
+    .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);}
+    .modal-content { background: #fff; margin: 10% auto; width: 90%; max-width: 500px; border-radius: 8px; overflow: hidden;}
+    .modal-header { background: #f8f9fa; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 20px; }
+    .modal-btn { width: 100%; background: #10b981; color: #fff; border: none; padding: 12px; border-radius: 4px; cursor: pointer; }
+    .modal-btn:hover { background: #059669; }
+    .close { font-size: 24px; cursor: pointer; }
+</style>
+</body>
+</html>

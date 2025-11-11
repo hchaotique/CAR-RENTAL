@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${carForm.id != null} ? 'Sửa thông tin xe' : 'Thêm xe mới'"></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+            margin-top: 40px;
+            margin-bottom: 40px;
+            max-width: 700px;
+        }
+        h1 {
+            color: #343a40;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        .btn-group-action {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .current-image {
+            max-width: 200px;
+            margin-bottom: 10px;
+            height: 120px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 th:text="${carForm.id != null} ? 'Sửa thông tin xe' : 'Thêm xe mới'"></h1>
+
+        <!-- Error Message -->
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Car Form -->
+        <form th:action="${carForm.id != null} ? @{/cars/edit/{id}(id=${carForm.id})} : @{/cars/add}" 
+              th:object="${carForm}" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+            
+            <!-- XÓA DÒNG NÀY -->
+            <!-- <input type="hidden" th:field="*{imageUrl}"/> -->
+
+            <input type="hidden" th:field="*{id}"/>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="make" class="form-label">Hãng xe</label>
+                    <input type="text" class="form-control" id="make" th:field="*{make}" required>
+                    <div class="invalid-feedback" th:errors="*{make}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="model" class="form-label">Model</label>
+                    <input type="text" class="form-control" id="model" th:field="*{model}" required>
+                    <div class="invalid-feedback" th:errors="*{model}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="year" class="form-label">Năm sản xuất</label>
+                    <input type="number" class="form-control" id="year" th:field="*{year}" required min="1900" max="2099">
+                    <div class="invalid-feedback" th:errors="*{year}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="transmission" class="form-label">Hộp số</label>
+                    <select class="form-select" id="transmission" th:field="*{transmission}" required>
+                        <option value="">Chọn loại hộp số</option>
+                        <option value="MANUAL">Số sàn</option>
+                        <option value="AUTO">Số tự động</option>
+                    </select>
+                    <div class="invalid-feedback" th:errors="*{transmission}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="fuelType" class="form-label">Loại nhiên liệu</label>
+                    <select class="form-select" id="fuelType" th:field="*{fuelType}" required>
+                        <option value="">Chọn loại nhiên liệu</option>
+                        <option value="PETROL">Xăng</option>
+                        <option value="DIESEL">Dầu</option>
+                        <option value="ELECTRIC">Điện</option>
+                        <option value="HYBRID">Hybrid</option>
+                    </select>
+                    <div class="invalid-feedback" th:errors="*{fuelType}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="seats" class="form-label">Số ghế</label>
+                    <input type="number" class="form-control" id="seats" th:field="*{seats}" required min="1" max="20">
+                    <div class="invalid-feedback" th:errors="*{seats}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="dailyPrice" class="form-label">Giá thuê mỗi ngày ($)</label>
+                    <input type="number" step="0.01" class="form-control" id="dailyPrice" th:field="*{dailyPrice}" required min="0.01">
+                    <div class="invalid-feedback" th:errors="*{dailyPrice}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="city" class="form-label">Thành phố</label>
+                    <input type="text" class="form-control" id="city" th:field="*{city}" required>
+                    <div class="invalid-feedback" th:errors="*{city}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="plateMasked" class="form-label">Biển số (masked)</label>
+                    <input type="text" class="form-control" id="plateMasked" th:field="*{plateMasked}">
+                    <div class="invalid-feedback" th:errors="*{plateMasked}"></div>
+                </div>
+                <div class="col-md-6">
+                    <label for="vinString" class="form-label">VIN (sẽ được encrypt)</label>
+                    <input type="text" class="form-control" id="vinString" th:field="*{vinString}">
+                </div>
+
+                <!-- UPLOAD NHIỀU ẢNH -->
+                <div class="col-12">
+                    <label for="imageFiles" class="form-label">Tải lên ảnh xe (tối đa 5)</label>
+                    <input type="file" 
+                           class="form-control" 
+                           id="imageFiles" 
+                           name="imageFiles" 
+                           accept="image/*" 
+                           multiple>
+                    <small class="text-muted">Chọn tối đa 5 ảnh</small>
+
+                    <!-- HIỂN THỊ ẢNH CŨ -->
+                    <div th:if="${carForm.existingImageUrls != null and not #lists.isEmpty(carForm.existingImageUrls)}" class="mt-3">
+                        <p><strong>Ảnh hiện tại:</strong></p>
+                        <div class="row g-2">
+                            <div th:each="url, iter : ${carForm.existingImageUrls}" class="col-3">
+                                <img th:src="${url}" 
+                                     alt="Current Image" 
+                                     class="img-thumbnail current-image" />
+                                <!-- Nếu muốn xóa ảnh cũ -->
+                                <!-- <input type="checkbox" name="removeImageIndices" th:value="${iter.index}"> Xóa -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group-action justify-content-center mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <span th:if="${carForm.id != null}">Cập nhật</span>
+                    <span th:if="${carForm.id == null}">Thêm xe</span>
+                </button>
+                <a th:href="@{/cars/list}" class="btn btn-secondary btn-lg">Quay lại</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Giới hạn 5 ảnh
+        document.getElementById('imageFiles').addEventListener('change', function(e) {
+            const files = e.target.files;
+            const existing = /*[[${carForm.existingImageUrls != null ? carForm.existingImageUrls.size() : 0}]]*/ 0;
+            if (files.length + existing > 5) {
+                alert('Tổng cộng không quá 5 ảnh! Hiện có ' + existing + ' ảnh cũ.');
+                e.target.value = '';
+            }
+        });
+
+        // Form validation
+        (function () {
+            'use strict';
+            const forms = document.querySelectorAll('.needs-validation');
+            Array.from(forms).forEach(form => {
+                form.addEventListener('submit', event => {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        })();
+    </script>
+</body>
+</html>

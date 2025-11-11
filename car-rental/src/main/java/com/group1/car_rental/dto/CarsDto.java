@@ -1,5 +1,7 @@
 package com.group1.car_rental.dto;
 
+import java.util.List;
+
 import lombok.Data;
 
 @Data
@@ -12,8 +14,10 @@ public class CarsDto {
     private String fuelType;
     private Byte seats;
     private Double dailyPrice;
-    private String imageUrl;
+    private List<String> imageUrls;
     private String city;
     private Double rating;
     private Integer numReviews;
+    private byte[] vinEncrypted;
+    private String plateMasked;
 }

@@ -200,6 +200,20 @@ public class BookingService {
         long days = java.time.temporal.ChronoUnit.DAYS.between(
             booking.getStartAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
             booking.getEndAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate()) + 1;
+
+        // Safety check: ensure days is positive to prevent negative pricing
+        if (days <= 0) {
+            logger.error("Invalid booking duration: {} days for booking start={} end={}",
+                days, booking.getStartAt(), booking.getEndAt());
+            throw new RuntimeException("Invalid booking duration: return date must be after pickup date");
+        }
+
+        // Maximum duration check (90 days)
+        if (days > 90) {
+            logger.error("Booking duration too long: {} days (max 90)", days);
+            throw new RuntimeException("Booking duration cannot exceed 90 days");
+        }
+
         int totalAmount = calculateBookingTotal(booking);
 
         logger.info("=== CREATE BOOKING START ===");
@@ -248,23 +262,53 @@ public class BookingService {
         }
 
         // Validate availability with hold token and check expiration
+        LocalDate startDate = booking.getStartAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+        LocalDate endDate = booking.getEndAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+
+        logger.info("Validating hold token for dates: {} to {}, listing: {}", startDate, endDate, booking.getListing().getId());
+
         List<AvailabilityCalendar> calendars = availabilityCalendarRepository
-            .findByListingIdAndDateRange(booking.getListing().getId(),
-                booking.getStartAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
-                booking.getEndAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+            .findByListingIdAndDateRange(booking.getListing().getId(), startDate, endDate);
+
+        logger.info("Found {} calendar records for validation", calendars.size());
+
+        LocalDateTime now = LocalDateTime.now();
+        logger.info("Current time for validation: {}", now);
 
         for (AvailabilityCalendar cal : calendars) {
-            if (!"HOLD".equals(cal.getStatus()) || !holdToken.equals(cal.getHoldToken())) {
-                logger.error("Invalid hold token validation: expected={} actual={} status={}",
-                    holdToken, cal.getHoldToken(), cal.getStatus());
-                throw new RuntimeException("Invalid hold token");
+            logger.info("Calendar record: day={}, status={}, holdToken={}, expireAt={}",
+                cal.getId().getDay(), cal.getStatus(), cal.getHoldToken(), cal.getHoldExpireAt());
+
+            // Check status and token
+            boolean statusValid = "HOLD".equals(cal.getStatus());
+            boolean tokenValid = holdToken.equals(cal.getHoldToken());
+
+            logger.info("Validation check for record {}: statusValid={}, tokenValid={}", cal.getId().getDay(), statusValid, tokenValid);
+
+            if (!statusValid || !tokenValid) {
+                String errorMsg = String.format(
+                    "Invalid hold token validation for record %s: expected token=%s status=HOLD, actual token=%s status=%s, statusValid=%s, tokenValid=%s",
+                    cal.getId().getDay(), holdToken, cal.getHoldToken(), cal.getStatus(), statusValid, tokenValid);
+                logger.error(errorMsg);
+                throw new RuntimeException("Invalid hold token: " + errorMsg);
             }
+
             // Check if hold has expired
-            if (cal.getHoldExpireAt() != null && cal.getHoldExpireAt().isBefore(LocalDateTime.now())) {
-                logger.error("Hold token expired: token={} expiredAt={}", holdToken, cal.getHoldExpireAt());
-                throw new RuntimeException("Hold token expired");
+            if (cal.getHoldExpireAt() != null) {
+                boolean isExpired = cal.getHoldExpireAt().isBefore(now);
+                logger.info("Expiration check for record {}: expireAt={}, now={}, isExpired={}",
+                    cal.getId().getDay(), cal.getHoldExpireAt(), now, isExpired);
+
+                if (isExpired) {
+                    logger.error("Hold token expired: token={} expiredAt={}", holdToken, cal.getHoldExpireAt());
+                    throw new RuntimeException("Hold token expired");
+                }
+            } else {
+                logger.warn("Hold expire time is null for record: {}", cal.getId().getDay());
             }
         }
+
+        logger.info("Hold token validation passed for {} records", calendars.size());
 
         // Set booking status - always require host approval
         booking.setStatus("PENDING_HOST");
@@ -707,7 +751,8 @@ public class BookingService {
         }
 
         // Guest cancellation - check policy and timing
-        String policy = booking.getListing().getCancellationPolicy();
+        String policy = booking.getListing().getCancellationPolicy().toString();
+        
         long hoursUntilStart = java.time.Duration.between(Instant.now(), booking.getStartAt()).toHours();
 
         switch (policy) {

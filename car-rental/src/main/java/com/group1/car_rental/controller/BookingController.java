@@ -46,7 +46,6 @@ public class BookingController {
     @Autowired
     private UserProfileRepository userProfileRepository;
 
-    // Helper method to get current authenticated user
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
@@ -59,7 +58,7 @@ public class BookingController {
             .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    // Helper method to check if user is authorized for booking
+    //  method to check if user is authorized for booking
     private void checkBookingAuthorization(Bookings booking, User currentUser, String requiredAction) {
         boolean isGuest = booking.getGuest().getId().equals(currentUser.getId());
         boolean isHost = booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId());
@@ -396,7 +395,7 @@ public class BookingController {
         listingDto.setHomeCity(booking.getListing().getHomeCity());
         listingDto.setPrice24hCents(booking.getListing().getPrice24hCents());
         listingDto.setInstantBook(booking.getListing().getInstantBook());
-        listingDto.setCancellationPolicy(booking.getListing().getCancellationPolicy());
+        listingDto.setCancellationPolicy(booking.getListing().getCancellationPolicy().toString());
 
         // Convert vehicle
         BookingDto.ListingDto.VehicleDto vehicleDto = new BookingDto.ListingDto.VehicleDto();
@@ -407,7 +406,7 @@ public class BookingController {
         vehicleDto.setTransmission(booking.getListing().getVehicle().getTransmission());
         vehicleDto.setFuelType(booking.getListing().getVehicle().getFuelType());
         vehicleDto.setSeats(booking.getListing().getVehicle().getSeats());
-        vehicleDto.setImageUrl(booking.getListing().getVehicle().getImageUrl());
+        vehicleDto.setImageUrls(booking.getListing().getVehicle().getImageUrls());
 
         // Convert owner
         BookingDto.ListingDto.VehicleDto.UserDto ownerDto = new BookingDto.ListingDto.VehicleDto.UserDto();

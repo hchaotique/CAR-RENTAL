@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "cars")
@@ -49,8 +51,10 @@ public class Cars {
     @Column(name = "daily_price")
     private Double dailyPrice;
 
+    @ElementCollection
+    @CollectionTable(name = "car_images", joinColumns = @JoinColumn(name = "car_id"))
     @Column(name = "image_url")
-    private String imageUrl;
+    private List<String> imageUrls = new ArrayList<>();
 
     @Column(name = "city")
     private String city;
@@ -80,5 +84,6 @@ public class Cars {
         this.updatedAt = Instant.now();
         this.status = "ACTIVE";
         this.seats = 5;
+        this.imageUrls = new ArrayList<>();
     }
 }

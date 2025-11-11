@@ -1,6 +1,7 @@
 package com.group1.car_rental.service;
 
 import com.group1.car_rental.entity.Bookings;
+import com.group1.car_rental.entity.Payments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MockPaymentProvider implements PaymentProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(MockPaymentProvider.class);
-    private static final AtomicLong transactionCounter = new AtomicLong(10000000);
+    private static final AtomicLong transactionCounter = new AtomicLong(1000000);
 
     @Override
     public Payments authorize(Bookings booking, String providerRef, int amountCents) {

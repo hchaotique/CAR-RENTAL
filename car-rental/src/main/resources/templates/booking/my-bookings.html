@@ -342,7 +342,7 @@
             }
         }
 
-        function displayBookings(bookings) {
+        async function displayBookings(bookings) {
             const container = document.getElementById('bookings-container');
             const emptyState = document.getElementById('empty-state');
 
@@ -353,13 +353,17 @@
             }
 
             emptyState.style.display = 'none';
-            container.innerHTML = bookings.map(booking => createBookingCard(booking)).join('');
+
+            // Create cards asynchronously
+            const cardPromises = bookings.map(booking => createBookingCard(booking));
+            const cards = await Promise.all(cardPromises);
+            container.innerHTML = cards.join('');
         }
 
-        function createBookingCard(booking) {
+        async function createBookingCard(booking) {
             const statusClass = getStatusClass(booking.status);
             const statusText = getStatusText(booking.status);
-            const actions = getBookingActions(booking);
+            const actions = await getBookingActions(booking);
 
             const startDate = new Date(booking.startAt).toLocaleDateString('vi-VN');
             const endDate = new Date(booking.endAt).toLocaleDateString('vi-VN');
@@ -372,7 +376,7 @@
                     </div>
 
                     <div class="car-info">
-                        <img src="${booking.listing?.vehicle?.imageUrl || 'https://via.placeholder.com/120x80?text=Xe'}" alt="Car" class="car-image">
+                        <img src="${booking.listing?.vehicle?.imageUrls && booking.listing.vehicle.imageUrls.length > 0 ? booking.listing.vehicle.imageUrls[0] : '/images/no-image.png'}" alt="Car" class="car-image">
                         <div class="car-details">
                             <h3>${booking.listing?.vehicle?.make || 'N/A'} ${booking.listing?.vehicle?.model || 'N/A'} ${booking.listing?.vehicle?.year || ''}</h3>
                             <div class="booking-dates">
@@ -417,7 +421,7 @@
             return texts[status] || status;
         }
 
-        function getBookingActions(booking) {
+        async function getBookingActions(booking) {
             const actions = [];
             const status = booking.status;
 
@@ -427,7 +431,29 @@
                     break;
 
                 case 'PAYMENT_AUTHORIZED':
-                    actions.push(`<button class="btn-action btn-success" onclick="checkIn(${booking.id})">Check-in</button>`);
+                    // Check if host has already checked in
+                    try {
+                        const response = await fetch(`/api/bookings/${booking.id}/events/CHECKIN_HOST`, {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' }
+                        });
+
+                        if (response.ok) {
+                            const events = await response.json();
+                            if (events && events.length > 0) {
+                                // Host has checked in - show review check-in button
+                                actions.push(`<button class="btn-action btn-success" onclick="reviewCheckIn(${booking.id})">Xem biên bản check-in</button>`);
+                            } else {
+                                // Host hasn't checked in yet - show waiting message
+                                actions.push(`<span class="waiting-text" style="color: #6b7280; font-size: 14px;">Đang chờ chủ xe check-in...</span>`);
+                            }
+                        } else {
+                            actions.push(`<span class="waiting-text" style="color: #6b7280; font-size: 14px;">Đang chờ chủ xe check-in...</span>`);
+                        }
+                    } catch (error) {
+                        console.error('Error checking host check-in status:', error);
+                        actions.push(`<span class="waiting-text" style="color: #6b7280; font-size: 14px;">Đang chờ chủ xe check-in...</span>`);
+                    }
                     actions.push(`<button class="btn-action btn-danger" onclick="cancelBooking(${booking.id})">Hủy đơn</button>`);
                     break;
 
@@ -533,8 +559,32 @@
         }
 
         function leaveReview(bookingId) {
-            // TODO: Implement review modal/page
-            alert('Tính năng đánh giá sẽ được thêm sau');
+            window.location.href = `/bookings/${bookingId}/reviews`;
+        }
+
+        function reviewCheckIn(bookingId) {
+            window.location.href = `/bookings/${bookingId}/checkin-guest`;
+        }
+
+        // Add missing functions
+        function showLoading(element, message) {
+            // Simple loading implementation
+            if (element) {
+                element.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (message || 'Loading...');
+                element.disabled = true;
+            }
+        }
+
+        function hideLoading() {
+            // Reset loading state - find buttons with spinner and reset them
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(btn => {
+                if (btn.innerHTML.includes('fa-spinner')) {
+                    // Reset to original text (this is a simple implementation)
+                    btn.innerHTML = btn.innerHTML.replace(/<i class="fas fa-spinner fa-spin"><\/i> /, '');
+                    btn.disabled = false;
+                }
+            });
         }
 
         function calculateTotal(booking) {

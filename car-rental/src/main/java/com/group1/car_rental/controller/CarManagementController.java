@@ -64,51 +64,63 @@ public class CarManagementController {
     }
 
     @PostMapping("/add")
-public String addCar(@Valid @ModelAttribute("carForm") CarsForm form,
-                     BindingResult bindingResult,
-                     RedirectAttributes redirectAttributes,
-                     Model model) {
-    if (bindingResult.hasErrors()) {
-        logger.warn("Validation errors during car creation: {}", bindingResult.getAllErrors());
-        model.addAttribute("action", "add");
-        return "cars/add";
-    }
-    try {
-        List<String> newImageUrls = new ArrayList<>();
-        if (form.getImageFiles() != null && !form.getImageFiles().isEmpty()) {
-            for (MultipartFile file : form.getImageFiles()) {
-                if (!file.isEmpty()) {
-                    String url = handleFileUpload(file);
-                    if (url != null) {
-                        newImageUrls.add(url);
-                    }
-                }
-            }
-        }
-
-        if (newImageUrls.size() > 5) {
-            model.addAttribute("error", "Tối đa 5 ảnh!");
+    public String addCar(@Valid @ModelAttribute("carForm") CarsForm form,
+                         BindingResult bindingResult,
+                         RedirectAttributes redirectAttributes,
+                         Model model) {
+        if (bindingResult.hasErrors()) {
+            logger.warn("Validation errors during car creation: {}", bindingResult.getAllErrors());
             model.addAttribute("action", "add");
             return "cars/add";
         }
+        try {
+            // Additional manual check to enforce plateMasked and images (though validation should catch it)
+            if (form.getPlateMasked() == null || form.getPlateMasked().trim().isEmpty()) {
+                bindingResult.rejectValue("plateMasked", "error.plateMasked", "Biển số không được để trống");
+                model.addAttribute("action", "add");
+                return "cars/add";
+            }
+            if (form.getImageFiles() == null || form.getImageFiles().isEmpty() || form.getImageFiles().stream().allMatch(MultipartFile::isEmpty)) {
+                bindingResult.rejectValue("imageFiles", "error.imageFiles", "Vui lòng tải lên ít nhất 1 ảnh xe");
+                model.addAttribute("action", "add");
+                return "cars/add";
+            }
 
-        form.setImageUrls(newImageUrls); // ← OK
+            List<String> newImageUrls = new ArrayList<>();
+            if (form.getImageFiles() != null && !form.getImageFiles().isEmpty()) {
+                for (MultipartFile file : form.getImageFiles()) {
+                    if (!file.isEmpty()) {
+                        String url = handleFileUpload(file);
+                        if (url != null) {
+                            newImageUrls.add(url);
+                        }
+                    }
+                }
+            }
 
-        if (form.getVinString() != null && !form.getVinString().isEmpty()) {
-            form.setVinEncrypted(form.getVinString().getBytes(StandardCharsets.UTF_8));
+            if (newImageUrls.size() > 5) {
+                model.addAttribute("error", "Tối đa 5 ảnh!");
+                model.addAttribute("action", "add");
+                return "cars/add";
+            }
+
+            form.setImageUrls(newImageUrls); // ← OK
+
+            if (form.getVinString() != null && !form.getVinString().isEmpty()) {
+                form.setVinEncrypted(form.getVinString().getBytes(StandardCharsets.UTF_8));
+            }
+
+            Long ownerId = getCurrentUserId();
+            carsService.createVehicle(form, ownerId);
+            redirectAttributes.addFlashAttribute("success", "Thêm xe thành công!");
+            return "redirect:/cars/list";
+        } catch (Exception e) {
+            logger.error("Error creating car: {}", e.getMessage());
+            model.addAttribute("error", e.getMessage());
+            model.addAttribute("action", "add");
+            return "cars/add";
         }
-
-        Long ownerId = getCurrentUserId();
-        carsService.createVehicle(form, ownerId);
-        redirectAttributes.addFlashAttribute("success", "Thêm xe thành công!");
-        return "redirect:/cars/list";
-    } catch (Exception e) {
-        logger.error("Error creating car: {}", e.getMessage());
-        model.addAttribute("error", e.getMessage());
-        model.addAttribute("action", "add");
-        return "cars/add";
     }
-}
 
 
     @GetMapping("/edit/{id}")
@@ -127,7 +139,7 @@ public String showEditForm(@PathVariable Long id, Model model) {
         form.setDailyPrice(car.getDailyPrice());
         form.setCity(car.getCity());
         form.setPlateMasked(car.getPlateMasked());
-        form.setExistingImageUrls(car.getImageUrls()); // ← ĐÚNG
+        form.setExistingImageUrls(car.getImageUrls() != null ? car.getImageUrls() : new ArrayList<>()); // ← ĐẢM BẢO KHÔNG NULL
         if (car.getVinEncrypted() != null) {
             form.setVinString(new String(car.getVinEncrypted(), StandardCharsets.UTF_8));
         }
@@ -172,6 +184,13 @@ public String updateCar(@PathVariable Long id,
         // GỘP: existing (cũ) + new (mới)
         List<String> finalUrls = new ArrayList<>(form.getExistingImageUrls() != null ? form.getExistingImageUrls() : new ArrayList<>());
         finalUrls.addAll(newImageUrls);
+
+        // ĐẢM BẢO: Luôn có ít nhất 1 ảnh
+        if (finalUrls.isEmpty()) {
+            model.addAttribute("error", "Xe phải có ít nhất 1 ảnh!");
+            model.addAttribute("action", "edit");
+            return "cars/add";
+        }
 
         if (finalUrls.size() > 5) {
             model.addAttribute("error", "Tối đa 5 ảnh!");

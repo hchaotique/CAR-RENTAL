@@ -48,6 +48,7 @@ public class User {
     private Integer version = 0;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private UserProfile profile;
 
     // Constructor for registration

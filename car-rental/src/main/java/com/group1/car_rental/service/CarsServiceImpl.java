@@ -4,18 +4,16 @@ import com.group1.car_rental.dto.CarListingsDto;
 import com.group1.car_rental.dto.CarListingsForm;
 import com.group1.car_rental.dto.CarsDto;
 import com.group1.car_rental.dto.CarsForm;
+import com.group1.car_rental.entity.AvailabilityCalendar;
 import com.group1.car_rental.entity.CarListings;
 import com.group1.car_rental.entity.Cars;
 import com.group1.car_rental.entity.User;
 import com.group1.car_rental.mapper.CarsMapper;
 import com.group1.car_rental.repository.CarsRepository;
 import com.group1.car_rental.repository.UserRepository;
+import com.group1.car_rental.repository.AvailabilityCalendarRepository;
 import com.group1.car_rental.repository.CarListingsRepository;
 import lombok.RequiredArgsConstructor;
-
-import org.geolatte.geom.G2D;
-import org.geolatte.geom.Point;
-import org.geolatte.geom.crs.CoordinateReferenceSystems;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +26,7 @@ import java.util.stream.Collectors;
 
 
 
+
 @Service
 @RequiredArgsConstructor
 public class CarsServiceImpl implements CarsService {
@@ -36,6 +35,7 @@ public class CarsServiceImpl implements CarsService {
     private final CarsMapper vehicleMapper;
     private final UserRepository userRepository;
     private final CarListingsRepository carListingsRepository;
+    private final AvailabilityCalendarRepository availabilityCalendarRepository;
 
     // XÓA HOÀN TOÀN GeometryFactory (không cần nữa)
     // private final GeometryFactory geometryFactory = ...
@@ -147,37 +147,9 @@ public class CarsServiceImpl implements CarsService {
         vehicleRepository.delete(car);
     }
 
-//     private CarListingsDto mapToCarListingsDto(CarListings listing) {
-//     CarListingsDto dto = new CarListingsDto();
-//     dto.setId(listing.getId());
-//     dto.setVehicleId(listing.getVehicle().getId());
-//     dto.setTitle(listing.getTitle());
-//     dto.setDescription(listing.getDescription());
-//     dto.setPrice24hCents(listing.getPrice24hCents());
-//     dto.setKmLimit24h(listing.getKmLimit24h());
-//     dto.setInstantBook(listing.getInstantBook());
-//     dto.setCancellationPolicy(listing.getCancellationPolicy().name());
-//     dto.setStatus(listing.getStatus().name());
-//     dto.setHomeCity(listing.getHomeCity());
 
-//     // PHÂN TÍCH WKT ĐỂ LẤY LAT/LNG
-//     String wkt = listing.getHomeLocation();
-//     if (wkt != null && wkt.startsWith("POINT(")) {
-//         try {
-//             String coords = wkt.substring(6, wkt.length() - 1); 
-//             String[] parts = coords.trim().split("\\s+");
-//             if (parts.length == 2) {
-//                 dto.setLongitude(Double.parseDouble(parts[0])); // lng
-//                 dto.setLatitude(Double.parseDouble(parts[1]));  // lat
-//             }
-//         } catch (Exception e) {
-//             System.err.println("Lỗi parse WKT: " + wkt);
-//         }
-//     }
-//     return dto;
-// }
 
-  @Override
+@Override
 @Transactional
 public CarListingsDto createCarListing(CarListingsForm form, Long ownerId) {
     User owner = userRepository.findById(ownerId)
@@ -193,14 +165,12 @@ public CarListingsDto createCarListing(CarListingsForm form, Long ownerId) {
     if (form.getLongitude() == null || form.getLatitude() == null) {
         throw new IllegalArgumentException("Tọa độ không hợp lệ");
     }
+    
 
-    System.out.println("FORM DATA: lng=" + form.getLongitude() + ", lat=" + form.getLatitude());
-
-    // TẠO WKT THAY VÌ POINT
+    // TẠO WKT
     String wkt = String.format("POINT(%.6f %.6f)", form.getLongitude(), form.getLatitude());
-    System.out.println("WKT: " + wkt);
 
-    // TẠO LISTING MỚI (CHỈ 1 LẦN)
+    // TẠO LISTING
     CarListings listing = new CarListings();
     listing.setVehicle(car);
     listing.setTitle(form.getTitle());
@@ -210,28 +180,39 @@ public CarListingsDto createCarListing(CarListingsForm form, Long ownerId) {
     listing.setInstantBook(form.getInstantBook());
     listing.setCancellationPolicy(CarListings.CancellationPolicy.valueOf(form.getCancellationPolicy()));
     listing.setStatus(CarListings.ListingStatus.valueOf(form.getStatus()));
-    listing.setHomeLocation(wkt);  // WKT string
+    listing.setHomeLocation(wkt);
     listing.setHomeCity(form.getHomeCity());
     listing.setCreatedAt(Instant.now());
     listing.setUpdatedAt(Instant.now());
 
     CarListings savedListing = carListingsRepository.save(listing);
+
+    // TỰ ĐỘNG TẠO 365 NGÀY KHẢ DỤNG
+    createAvailabilitySlots(savedListing.getId());
+
     return mapToCarListingsDto(savedListing);
 }
+/**
+ * Tạo 365 ngày khả dụng từ hôm nay cho listing
+ */
+private void createAvailabilitySlots(Long listingId) {
+    LocalDate startDate = LocalDate.now();
+    List<AvailabilityCalendar> slots = new ArrayList<>();
 
-    @Override
-    public void deleteVehicleAsAdmin(Long id) {
-        Cars car = vehicleRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy xe với ID: " + id));
-        vehicleRepository.delete(car);
+    for (int i = 0; i < 365; i++) {
+        LocalDate day = startDate.plusDays(i);
+        AvailabilityCalendar.AvailabilityCalendarId id = 
+            new AvailabilityCalendar.AvailabilityCalendarId(listingId, day);
+
+        AvailabilityCalendar slot = new AvailabilityCalendar();
+        slot.setId(id);
+        slot.setStatus("FREE");
+        slots.add(slot);
     }
-    @Override
-public List<CarListingsDto> getListingsByOwner(Long ownerId) {
-    User owner = userRepository.findById(ownerId)
-            .orElseThrow(() -> new IllegalArgumentException("User not found"));
-    List<CarListings> listings = carListingsRepository.findByVehicleOwnerId(ownerId);
-    return listings.stream().map(this::mapToCarListingsDto).collect(Collectors.toList());
+
+    availabilityCalendarRepository.saveAll(slots); // Batch insert
 }
+
 
 @Override
 public CarListingsDto getListingByIdAndOwner(Long id, Long ownerId) {
@@ -350,5 +331,21 @@ public CarListingsDto getListingById(Long id) {
     CarListings listing = carListingsRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy bài đăng với ID: " + id));
     return mapToCarListingsDto(listing);
+}
+@Override
+public List<CarListingsDto> getListingsByOwner(Long ownerId) {
+    User owner = userRepository.findById(ownerId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    List<CarListings> listings = carListingsRepository.findByVehicleOwnerId(ownerId);
+    return listings.stream()
+            .map(this::mapToCarListingsDto)
+            .collect(Collectors.toList());
+}
+@Override
+@Transactional
+public void deleteVehicleAsAdmin(Long id) {
+    Cars car = vehicleRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy xe với ID: " + id));
+    vehicleRepository.delete(car);
 }
 }

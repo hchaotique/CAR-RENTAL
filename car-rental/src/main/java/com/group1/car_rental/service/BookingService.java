@@ -1,6 +1,7 @@
 package com.group1.car_rental.service;
 
 import com.group1.car_rental.entity.*;
+import com.group1.car_rental.entity.CarListings.ListingStatus;
 import com.group1.car_rental.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +37,6 @@ public class BookingService {
     @Autowired
     private ChargesRepository chargesRepository;
 
-    @Autowired
-    private OutboxEventsRepository outboxEventsRepository;
 
     @Autowired
     private CarListingsRepository carListingsRepository;
@@ -54,12 +53,21 @@ public class BookingService {
     @Autowired
     private PaymentProvider paymentProvider;
 
+    @Autowired
+    private TripInspectionsRepository tripInspectionsRepository;
+
+    @Autowired
+    private ReviewsRepository reviewsRepository;
+
+    @Autowired
+    private OutboxEventsRepository outboxEventsRepository;
+
     // Validation methods
     private void validateListingEligibility(Long listingId) {
         CarListings listing = carListingsRepository.findById(listingId)
             .orElseThrow(() -> new RuntimeException("Listing not found"));
 
-        if (!"ACTIVE".equals(listing.getStatus())) {
+        if (listing.getStatus() != ListingStatus.ACTIVE) {
             throw new RuntimeException("Listing is not active");
         }
 
@@ -792,6 +800,359 @@ public class BookingService {
         for (Payouts payout : pendingPayouts) {
             payout.setStatus("CANCELLED");
             payoutsRepository.save(payout);
+        }
+    }
+    @Transactional
+    public void approveBooking(Long bookingId, UUID idempotencyKey) {
+        if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            throw new RuntimeException("Duplicate request");
+        }
+        idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
+
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!"PENDING_HOST".equals(booking.getStatus())) {
+            throw new RuntimeException("Invalid status");
+        }
+
+        booking.setStatus("PAYMENT_AUTHORIZED");
+        booking.setUpdatedAt(Instant.now());
+        bookingsRepository.save(booking);
+
+        outboxEventsRepository.save(new OutboxEvents("Booking", bookingId,
+            "BOOKING_APPROVED", "{\"bookingId\": " + bookingId + "}"));
+    }
+
+    // Extended Check-in with inspection data
+    @Transactional
+    public void hostCheckIn(Long bookingId, Integer odometerKm, Byte fuelLevelPct,
+                           String photosJson, String notes, UUID idempotencyKey) {
+        logger.info("Host check-in for booking {}: odometer={}, fuel={}, photos={}",
+            bookingId, odometerKm, fuelLevelPct, photosJson);
+
+        // Check idempotency
+        if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            logger.warn("Duplicate host check-in request: booking={} token={}", bookingId, idempotencyKey);
+            throw new RuntimeException("Duplicate check-in request");
+        }
+        idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
+
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!"PAYMENT_AUTHORIZED".equals(booking.getStatus())) {
+            throw new RuntimeException("Invalid status for check-in - booking must be PAYMENT_AUTHORIZED");
+        }
+
+        // Keep photosJson as null when no photos are provided - database constraint allows NULL
+        String safePhotosJson = photosJson;
+
+        // Create trip inspection record
+        TripInspections inspection = new TripInspections(booking, "CHECKIN");
+        inspection.setOdometerKm(odometerKm);
+        inspection.setFuelLevelPct(fuelLevelPct);
+        inspection.setPhotosJson(safePhotosJson);
+        inspection.setNotes(notes);
+        tripInspectionsRepository.save(inspection);
+
+        // Publish event for host check-in
+        outboxEventsRepository.save(new OutboxEvents("Booking", bookingId,
+            "CHECKIN_HOST", "{\"bookingId\": " + bookingId + ", \"odometerKm\": " + odometerKm +
+            ", \"fuelLevelPct\": " + fuelLevelPct + ", \"inspectionId\": " + inspection.getId() + "}"));
+
+        logger.info("Host check-in completed for booking {}, inspection ID: {}", bookingId, inspection.getId());
+    }
+
+    // Guest acknowledgment of check-in
+    @Transactional
+    public void guestAcknowledgeCheckIn(Long bookingId, UUID idempotencyKey) {
+        logger.info("Guest acknowledgment for booking {}", bookingId);
+
+        // Check idempotency
+        if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            logger.warn("Duplicate guest acknowledgment: booking={} token={}", bookingId, idempotencyKey);
+            throw new RuntimeException("Duplicate acknowledgment");
+        }
+        idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
+
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!"PAYMENT_AUTHORIZED".equals(booking.getStatus())) {
+            throw new RuntimeException("Invalid status for acknowledgment");
+        }
+
+        // Check if host has already checked in
+        List<OutboxEvents> hostCheckInEvents = outboxEventsRepository
+            .findByAggregateTypeAndAggregateIdAndEventType("Booking", bookingId, "CHECKIN_HOST");
+
+        if (hostCheckInEvents.isEmpty()) {
+            throw new RuntimeException("Host must check-in first");
+        }
+
+        // Publish guest acknowledgment event
+        outboxEventsRepository.save(new OutboxEvents("Booking", bookingId,
+            "CHECKIN_GUEST_ACK", "{\"bookingId\": " + bookingId + ", \"acknowledgedAt\": \"" + Instant.now() + "\"}"));
+
+        // Check if both events exist - if so, transition to IN_PROGRESS
+        List<OutboxEvents> guestAckEvents = outboxEventsRepository
+            .findByAggregateTypeAndAggregateIdAndEventType("Booking", bookingId, "CHECKIN_GUEST_ACK");
+
+        if (!hostCheckInEvents.isEmpty() && !guestAckEvents.isEmpty()) {
+            booking.setStatus("IN_PROGRESS");
+            booking.setUpdatedAt(Instant.now());
+            bookingsRepository.save(booking);
+
+            outboxEventsRepository.save(new OutboxEvents("Booking", bookingId,
+                "TRIP_STARTED", "{\"bookingId\": " + bookingId + ", \"startedAt\": \"" + Instant.now() + "\"}"));
+
+            logger.info("Trip started for booking {} after dual confirmation", bookingId);
+        }
+    }
+
+    // Extended Check-out with charge calculation
+    @Transactional
+    public void hostCheckOut(Long bookingId, Integer odometerKm, Byte fuelLevelPct,
+                            String photosJson, String notes, boolean needsCleaning,
+                            UUID idempotencyKey) {
+        logger.info("Host check-out for booking {}: odometer={}, fuel={}, cleaning={}",
+            bookingId, odometerKm, fuelLevelPct, needsCleaning);
+
+        // Check idempotency
+        if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            logger.warn("Duplicate check-out request: booking={} token={}", bookingId, idempotencyKey);
+            throw new RuntimeException("Duplicate check-out request");
+        }
+        idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
+
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!"IN_PROGRESS".equals(booking.getStatus())) {
+            throw new RuntimeException("Invalid status for check-out - booking must be IN_PROGRESS");
+        }
+
+        // Create checkout inspection record
+        TripInspections inspection = new TripInspections(booking, "CHECKOUT");
+        inspection.setOdometerKm(odometerKm);
+        inspection.setFuelLevelPct(fuelLevelPct);
+        inspection.setPhotosJson(photosJson);
+        inspection.setNotes(notes);
+        tripInspectionsRepository.save(inspection);
+
+        // Calculate additional charges
+        calculateAdditionalCharges(booking, needsCleaning);
+
+        // Process payment capture and completion
+        completeTripWithCharges(bookingId, idempotencyKey);
+
+        logger.info("Host check-out completed for booking {}, inspection ID: {}", bookingId, inspection.getId());
+    }
+
+    // Calculate additional charges based on trip inspections
+    private void calculateAdditionalCharges(Bookings booking, boolean needsCleaning) {
+        List<TripInspections> inspections = tripInspectionsRepository.findByBookingId(booking.getId());
+
+        TripInspections checkIn = null;
+        TripInspections checkOut = null;
+
+        for (TripInspections insp : inspections) {
+            if ("CHECKIN".equals(insp.getChkType())) {
+                checkIn = insp;
+            } else if ("CHECKOUT".equals(insp.getChkType())) {
+                checkOut = insp;
+            }
+        }
+
+        if (checkIn != null && checkOut != null) {
+            // Calculate KM_OVER
+            if (checkIn.getOdometerKm() != null && checkOut.getOdometerKm() != null) {
+                int kmUsed = checkOut.getOdometerKm() - checkIn.getOdometerKm();
+                long rentalDays = java.time.temporal.ChronoUnit.DAYS.between(
+                    booking.getStartAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate(),
+                    booking.getEndAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate()) + 1;
+
+                int kmLimit = booking.getListing().getKmLimit24h() * (int) rentalDays;
+                int kmOver = Math.max(0, kmUsed - kmLimit);
+
+                if (kmOver > 0) {
+                    // Assume 5000 VND per extra km
+                    int kmOverCharge = kmOver * 5000;
+                    Charges kmCharge = new Charges(booking, "KM_OVER", kmOverCharge);
+                    kmCharge.setCurrency("VND");
+                    kmCharge.setNote("Extra " + kmOver + " km at 5000 VND/km");
+                    chargesRepository.save(kmCharge);
+                }
+            }
+
+            // Calculate FUEL charge
+            if (checkIn.getFuelLevelPct() != null && checkOut.getFuelLevelPct() != null) {
+                int fuelUsed = checkIn.getFuelLevelPct() - checkOut.getFuelLevelPct();
+                if (fuelUsed > 0) {
+                    // Assume 25,000 VND per liter, average car holds 50 liters
+                    int fuelCharge = fuelUsed * 25000;
+                    Charges fuelChargeEntity = new Charges(booking, "FUEL", fuelCharge);
+                    fuelChargeEntity.setCurrency("VND");
+                    fuelChargeEntity.setNote("Fuel shortage: " + fuelUsed + "%");
+                    chargesRepository.save(fuelChargeEntity);
+                }
+            }
+        }
+
+        // Calculate CLEANING charge
+        if (needsCleaning) {
+            Charges cleaningCharge = new Charges(booking, "CLEANING", 50000); // 50,000 VND fixed
+            cleaningCharge.setCurrency("VND");
+            cleaningCharge.setNote("Car cleaning fee");
+            chargesRepository.save(cleaningCharge);
+        }
+    }
+
+    // Complete trip with charges
+    private void completeTripWithCharges(Long bookingId, UUID idempotencyKey) {
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Calculate total amount including additional charges
+        List<Charges> allCharges = chargesRepository.findByBookingId(bookingId);
+        int totalAmount = allCharges.stream()
+            .mapToInt(Charges::getAmountCents)
+            .sum();
+
+        // Create CAPTURE payment for additional charges
+        List<Payments> authPayments = paymentsRepository.findByBookingIdAndTypeAndStatus(bookingId, "AUTH", "SUCCEEDED");
+        if (!authPayments.isEmpty()) {
+            Payments authPayment = authPayments.get(0);
+
+            // For demo, assume additional charges are captured immediately
+            // In real implementation, this would handle additional payment if needed
+            if (totalAmount > authPayment.getAmountCents()) {
+                int additionalAmount = totalAmount - authPayment.getAmountCents();
+                logger.info("Additional charges for booking {}: {} VND", bookingId, additionalAmount);
+                // Here you would handle additional payment collection
+            }
+        }
+
+        // Create payout for host (recalculate with additional charges)
+        createPayoutForHost(booking);
+
+        // Update status to COMPLETED
+        booking.setStatus("COMPLETED");
+        booking.setUpdatedAt(Instant.now());
+        bookingsRepository.save(booking);
+
+        outboxEventsRepository.save(new OutboxEvents("Booking", bookingId,
+            "BOOKING_COMPLETED", "{\"bookingId\": " + bookingId + ", \"completedAt\": \"" + Instant.now() + "\"}"));
+
+        logger.info("Trip completed with charges for booking {}", bookingId);
+    }
+
+    // Create review
+    @Transactional
+    public void createReview(Long bookingId, Long fromUserId, Long toUserId,
+                            Byte rating, String comment, UUID idempotencyKey) {
+        logger.info("Creating review: booking={}, from={}, to={}, rating={}",
+            bookingId, fromUserId, toUserId, rating);
+
+        // Check idempotency
+        if (idempotencyKeysRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            throw new RuntimeException("Duplicate review submission");
+        }
+        idempotencyKeysRepository.save(new IdempotencyKeys(idempotencyKey));
+
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!"COMPLETED".equals(booking.getStatus())) {
+            throw new RuntimeException("Can only review completed bookings");
+        }
+
+        // Validate users are part of this booking
+        boolean validReview = (booking.getGuest().getId().equals(fromUserId) && booking.getListing().getVehicle().getOwner().getId().equals(toUserId)) ||
+                             (booking.getListing().getVehicle().getOwner().getId().equals(fromUserId) && booking.getGuest().getId().equals(toUserId));
+
+        if (!validReview) {
+            throw new RuntimeException("Invalid review participants");
+        }
+
+        // Check for existing review
+        List<Reviews> existingReviews = reviewsRepository.findByBookingId(bookingId);
+        boolean alreadyReviewed = existingReviews.stream()
+            .anyMatch(r -> r.getFromUser().getId().equals(fromUserId) && r.getToUser().getId().equals(toUserId));
+
+        if (alreadyReviewed) {
+            throw new RuntimeException("Review already exists for this booking");
+        }
+
+        Reviews review = new Reviews(booking,
+            userRepository.findById(fromUserId).orElseThrow(),
+            userRepository.findById(toUserId).orElseThrow(),
+            rating);
+        review.setComment(comment);
+        reviewsRepository.save(review);
+
+        logger.info("Review created: {}", review.getId());
+    }
+
+    // Helper method to find events (add to OutboxEventsRepository if needed)
+    public List<OutboxEvents> findEvents(String aggregateType, Long aggregateId, String eventType) {
+        // This would need to be implemented in the repository
+        return outboxEventsRepository.findAll().stream()
+            .filter(e -> aggregateType.equals(e.getAggregateType()) &&
+                        aggregateId.equals(e.getAggregateId()) &&
+                        eventType.equals(e.getEventType()))
+            .toList();
+    }
+
+    // Check for NO_SHOW and automatically update status
+    @Transactional
+    public void checkAndUpdateNoShowBookings() {
+        logger.info("Checking for NO_SHOW bookings...");
+
+        Instant now = Instant.now();
+        Instant cutoffTime = now.minus(java.time.Duration.ofHours(2)); // 2 hours after start time
+
+        // Find bookings that should have started but haven't been checked in
+        List<Bookings> potentialNoShows = bookingsRepository.findByStatusAndStartAtBefore("PAYMENT_AUTHORIZED", cutoffTime);
+
+        for (Bookings booking : potentialNoShows) {
+            // Double-check: ensure no check-in events exist
+            List<OutboxEvents> checkInEvents = outboxEventsRepository
+                .findByAggregateTypeAndAggregateIdAndEventType("Booking", booking.getId(), "TRIP_STARTED");
+
+            if (checkInEvents.isEmpty()) {
+                // No check-in found - mark as NO_SHOW
+                booking.setStatus("NO_SHOW_GUEST");
+                booking.setUpdatedAt(now);
+                bookingsRepository.save(booking);
+
+                // Handle refund for no-show
+                handleNoShowRefund(booking);
+
+                outboxEventsRepository.save(new OutboxEvents("Booking", booking.getId(),
+                    "BOOKING_NO_SHOW", "{\"bookingId\": " + booking.getId() + ", \"reason\": \"NO_SHOW_GUEST\"}"));
+
+                logger.info("Booking {} marked as NO_SHOW_GUEST due to no check-in", booking.getId());
+            }
+        }
+    }
+
+    // Handle refund for no-show bookings
+    private void handleNoShowRefund(Bookings booking) {
+        List<Payments> authPayments = paymentsRepository.findByBookingIdAndTypeAndStatus(booking.getId(), "AUTH", "SUCCEEDED");
+
+        if (!authPayments.isEmpty()) {
+            Payments authPayment = authPayments.get(0);
+
+            // For no-show, apply partial refund (e.g., 50% retention as penalty)
+            int refundAmount = authPayment.getAmountCents() / 2; // 50% refund
+
+            if (refundAmount > 0) {
+                Payments refundPayment = paymentProvider.refund(booking, authPayment, refundAmount);
+                paymentsRepository.save(refundPayment);
+                logger.info("Processed {} VND refund for no-show booking {}", refundAmount, booking.getId());
+            }
         }
     }
 }

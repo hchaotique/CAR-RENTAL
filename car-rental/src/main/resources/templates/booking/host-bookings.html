@@ -434,9 +434,9 @@
                     </div>
 
                     <div class="car-info">
-                        <img src="${booking.carImageUrl || 'https://via.placeholder.com/120x80?text=No+Image'}" alt="Car" class="car-image">
+                        <img src="${booking.carImageUrls && booking.carImageUrls.length > 0 ? booking.carImageUrls[0] : '/images/no-image.png'}" alt="Car" class="car-image">
                         <div class="car-details">
-                            <h3>${booking.listing?.vehicle?.make || 'N/A'} ${booking.listing?.vehicle?.model || 'N/A'} ${booking.listing?.vehicle?.year || ''}</h3>
+                            <h3>${booking.carMake || 'N/A'} ${booking.carModel || 'N/A'} ${booking.carYear || ''}</h3>
                             <div class="booking-dates">
                                 <i class="fas fa-calendar"></i> ${startDate} - ${endDate}
                             </div>
@@ -502,7 +502,7 @@
                     break;
 
                 case 'PAYMENT_AUTHORIZED':
-                    actions.push(`<button class="btn-action btn-warning" onclick="checkIn(${booking.id})">Check-in</button>`);
+                    actions.push(`<button class="btn-action btn-warning" onclick="startCheckIn(${booking.id})">Check-in</button>`);
                     actions.push(`<button class="btn-action btn-danger" onclick="cancelBooking(${booking.id}, true)">Hủy đơn</button>`);
                     break;
 
@@ -512,6 +512,7 @@
 
                 case 'COMPLETED':
                     actions.push(`<button class="btn-action btn-secondary" onclick="viewPayout(${booking.id})">Thanh toán</button>`);
+                    actions.push(`<button class="btn-action btn-primary" onclick="writeReview(${booking.id})">Đánh giá</button>`);
                     break;
 
                 default:
@@ -566,12 +567,12 @@
             await performBookingAction(bookingId, 'reject', 'Từ chối đơn đặt xe này?');
         }
 
-        async function checkIn(bookingId) {
-            await performBookingAction(bookingId, 'checkin', 'Xác nhận check-in cho chuyến đi?');
+        function startCheckIn(bookingId) {
+            window.location.href = `/bookings/${bookingId}/checkin-host`;
         }
 
-        async function checkOut(bookingId) {
-            await performBookingAction(bookingId, 'checkout', 'Xác nhận check-out và hoàn thành chuyến đi?');
+        function checkOut(bookingId) {
+            window.location.href = `/bookings/${bookingId}/checkout-host`;
         }
 
         async function cancelBooking(bookingId, isHostCancellation = true) {
@@ -628,6 +629,10 @@
         function viewPayout(bookingId) {
             // TODO: Show payout details modal
             alert('Tính năng xem chi tiết thanh toán sẽ được thêm sau');
+        }
+
+        function writeReview(bookingId) {
+            window.location.href = `/bookings/${bookingId}/reviews`;
         }
 
         function calculateTotal(booking) {

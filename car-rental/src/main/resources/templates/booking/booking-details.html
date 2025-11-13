@@ -543,7 +543,7 @@
             const vehicle = listing?.vehicle;
 
             carInfo.innerHTML = `
-                <img src="${vehicle?.imageUrl || 'https://via.placeholder.com/120x80?text=Xe'}" alt="Car" class="car-image">
+                <img src="${vehicle?.imageUrls && vehicle.imageUrls.length > 0 ? vehicle.imageUrls[0] : '/images/no-image.png'}" alt="Car" class="car-image">
                 <div class="car-details">
                     <h4>${vehicle?.make || 'N/A'} ${vehicle?.model || 'N/A'} ${vehicle?.year || ''}</h4>
                     <p style="color: #6b7280; margin: 4px 0;">
@@ -640,19 +640,12 @@
             }
 
             // Check-in
-            if (status === 'IN_PROGRESS') {
+            if (['IN_PROGRESS', 'COMPLETED'].includes(status)) {
                 events.push({
                     time: 'Đã check-in',
                     title: 'Bắt đầu chuyến đi',
                     description: 'Đã nhận xe và bắt đầu chuyến đi',
-                    status: 'active'
-                });
-            } else if (status === 'COMPLETED') {
-                events.push({
-                    time: 'Đã check-in',
-                    title: 'Bắt đầu chuyến đi',
-                    description: 'Đã nhận xe và bắt đầu chuyến đi',
-                    status: 'completed'
+                    status: status === 'IN_PROGRESS' ? 'active' : 'completed'
                 });
             }
 
@@ -947,7 +940,7 @@
         }
 
         function leaveReview(bookingId) {
-            alert('Tính năng đánh giá sẽ được thêm sau');
+            window.location.href = `/bookings/${bookingId}/reviews`;
         }
 
         function getCurrentUserEmail() {

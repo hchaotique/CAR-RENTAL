@@ -5,6 +5,8 @@ import com.group1.car_rental.entity.*;
 import com.group1.car_rental.repository.AvailabilityCalendarRepository;
 import com.group1.car_rental.repository.BookingsRepository;
 import com.group1.car_rental.repository.CarListingsRepository;
+import com.group1.car_rental.repository.OutboxEventsRepository;
+import com.group1.car_rental.repository.TripInspectionsRepository;
 import com.group1.car_rental.repository.UserRepository;
 import com.group1.car_rental.service.BookingService;
 import org.slf4j.Logger;
@@ -21,6 +23,15 @@ import java.time.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 @Controller
 @RequestMapping("/bookings")
 public class BookingWebController {
@@ -41,6 +52,12 @@ public class BookingWebController {
 
     @Autowired
     private AvailabilityCalendarRepository availabilityCalendarRepository;
+
+    @Autowired
+    private OutboxEventsRepository outboxEventsRepository;
+
+    @Autowired
+    private TripInspectionsRepository tripInspectionsRepository;
 
     // Helper method to get current authenticated user
     private User getCurrentUser() {
@@ -158,13 +175,13 @@ public class BookingWebController {
             }
 
             // 8. Validate listing exists and is active
-            CarListings validatedListing = carListingsRepository.findById(listingId)
-                    .orElseThrow(() -> new RuntimeException("Listing not found"));
-            if (!"ACTIVE".equals(validatedListing.getStatus())) {
-                logger.warn("SECURITY: Attempted booking on inactive listing: {}", listingId);
-                redirectAttributes.addFlashAttribute("error", "Xe này hiện không khả dụng để thuê");
-                return "redirect:/bookings/create?listingId=" + listingId;
-            }
+            // CarListings validatedListing = carListingsRepository.findById(listingId)
+            //         .orElseThrow(() -> new RuntimeException("Listing not found"));
+            // if (!"ACTIVE".equals(validatedListing.getStatus())) {
+            //     logger.warn("SECURITY: Attempted booking on inactive listing: {}", listingId);
+            //     redirectAttributes.addFlashAttribute("error", "Xe này hiện không khả dụng để thuê");
+            //     return "redirect:/bookings/create?listingId=" + listingId;
+            // }
 
             // 9. Additional security: Check for rapid booking attempts (basic rate limiting)
 
@@ -279,10 +296,14 @@ public class BookingWebController {
                 listingId = reconstructedListingId;
                 pickupDateStr = minDate.toString();
                 returnDateStr = maxDate.toString();
-                pickupTime = "09:00"; // Default
-                returnTime = "18:00"; // Default
+                String reconstructedPickupTime = "09:00"; // Default
+                String reconstructedReturnTime = "18:00"; // Default
                 totalAmount = calculatedAmount;
                 days = calculatedDays;
+
+                // Use reconstructed times if parameters were null
+                if (pickupTime == null) pickupTime = reconstructedPickupTime;
+                if (returnTime == null) returnTime = reconstructedReturnTime;
 
                 logger.info("Reconstructed payment data: listing={}, dates={} to {}, amount={}",
                         listingId, pickupDateStr, returnDateStr, totalAmount);
@@ -525,8 +546,120 @@ public class BookingWebController {
         }
 
         // Convert to DTO
-        BookingDto dto = convertToDto(booking);
+        BookingDto dto = new BookingDto();
+        dto.setId(booking.getId());
+        dto.setStartAt(booking.getStartAt());
+        dto.setEndAt(booking.getEndAt());
+        dto.setStatus(booking.getStatus());
+        dto.setCreatedAt(booking.getCreatedAt());
+        dto.setUpdatedAt(booking.getUpdatedAt());
+
+        // Set guest
+        BookingDto.UserDto guestDto = new BookingDto.UserDto();
+        guestDto.setId(booking.getGuest().getId());
+        guestDto.setEmail(booking.getGuest().getEmail());
+        guestDto.setPhone(booking.getGuest().getPhone());
+        dto.setGuest(guestDto);
+
+        // Set listing
+        BookingDto.ListingDto listingDto = new BookingDto.ListingDto();
+        listingDto.setId(booking.getListing().getId());
+        listingDto.setHomeCity(booking.getListing().getHomeCity());
+        listingDto.setPrice24hCents(booking.getListing().getPrice24hCents());
+        listingDto.setInstantBook(booking.getListing().getInstantBook());
+        listingDto.setCancellationPolicy(booking.getListing().getCancellationPolicy().toString());
+
+        // Set vehicle
+        BookingDto.ListingDto.VehicleDto vehicleDto = new BookingDto.ListingDto.VehicleDto();
+        vehicleDto.setId(booking.getListing().getVehicle().getId());
+        vehicleDto.setMake(booking.getListing().getVehicle().getMake());
+        vehicleDto.setModel(booking.getListing().getVehicle().getModel());
+        vehicleDto.setYear(booking.getListing().getVehicle().getYear());
+        vehicleDto.setTransmission(booking.getListing().getVehicle().getTransmission());
+        vehicleDto.setFuelType(booking.getListing().getVehicle().getFuelType());
+        vehicleDto.setSeats(booking.getListing().getVehicle().getSeats());
+
+        // Set owner
+        BookingDto.ListingDto.VehicleDto.UserDto ownerDto = new BookingDto.ListingDto.VehicleDto.UserDto();
+        ownerDto.setId(booking.getListing().getVehicle().getOwner().getId());
+        ownerDto.setEmail(booking.getListing().getVehicle().getOwner().getEmail());
+        ownerDto.setPhone(booking.getListing().getVehicle().getOwner().getPhone());
+        vehicleDto.setOwner(ownerDto);
+
+        listingDto.setVehicle(vehicleDto);
+        dto.setListing(listingDto);
+
         return ResponseEntity.ok(dto);
+    }
+
+    // Show my bookings page (web page)
+    @GetMapping("/my-bookings")
+    public String showMyBookingsPage(Model model) {
+        User currentUser = getCurrentUser();
+        model.addAttribute("currentUser", currentUser);
+        return "booking/my-bookings";
+    }
+
+    // API endpoint for customer bookings
+    @GetMapping("/api/my-bookings")
+    public ResponseEntity<List<BookingDto>> getMyBookings() {
+        User currentUser = getCurrentUser();
+        logger.info("Fetching bookings for customer: {} (ID: {})", currentUser.getEmail(), currentUser.getId());
+
+        List<Bookings> bookings = bookingsRepository.findByGuestId(currentUser.getId());
+        logger.info("Found {} bookings for customer {}", bookings.size(), currentUser.getEmail());
+
+        // Convert to DTOs
+        List<BookingDto> dtos = bookings.stream()
+            .map(booking -> {
+                BookingDto dto = new BookingDto();
+                dto.setId(booking.getId());
+                dto.setStartAt(booking.getStartAt());
+                dto.setEndAt(booking.getEndAt());
+                dto.setStatus(booking.getStatus());
+                dto.setCreatedAt(booking.getCreatedAt());
+                dto.setUpdatedAt(booking.getUpdatedAt());
+
+                // Set guest
+                BookingDto.UserDto guestDto = new BookingDto.UserDto();
+                guestDto.setId(booking.getGuest().getId());
+                guestDto.setEmail(booking.getGuest().getEmail());
+                guestDto.setPhone(booking.getGuest().getPhone());
+                dto.setGuest(guestDto);
+
+                // Set listing
+                BookingDto.ListingDto listingDto = new BookingDto.ListingDto();
+                listingDto.setId(booking.getListing().getId());
+                listingDto.setHomeCity(booking.getListing().getHomeCity());
+                listingDto.setPrice24hCents(booking.getListing().getPrice24hCents());
+                listingDto.setInstantBook(booking.getListing().getInstantBook());
+                listingDto.setCancellationPolicy(booking.getListing().getCancellationPolicy().toString());
+
+                // Set vehicle
+                BookingDto.ListingDto.VehicleDto vehicleDto = new BookingDto.ListingDto.VehicleDto();
+                vehicleDto.setId(booking.getListing().getVehicle().getId());
+                vehicleDto.setMake(booking.getListing().getVehicle().getMake());
+                vehicleDto.setModel(booking.getListing().getVehicle().getModel());
+                vehicleDto.setYear(booking.getListing().getVehicle().getYear());
+                vehicleDto.setTransmission(booking.getListing().getVehicle().getTransmission());
+                vehicleDto.setFuelType(booking.getListing().getVehicle().getFuelType());
+                vehicleDto.setSeats(booking.getListing().getVehicle().getSeats());
+
+                // Set owner
+                BookingDto.ListingDto.VehicleDto.UserDto ownerDto = new BookingDto.ListingDto.VehicleDto.UserDto();
+                ownerDto.setId(booking.getListing().getVehicle().getOwner().getId());
+                ownerDto.setEmail(booking.getListing().getVehicle().getOwner().getEmail());
+                ownerDto.setPhone(booking.getListing().getVehicle().getOwner().getPhone());
+                vehicleDto.setOwner(ownerDto);
+
+                listingDto.setVehicle(vehicleDto);
+                dto.setListing(listingDto);
+
+                return dto;
+            })
+            .toList();
+
+        return ResponseEntity.ok(dtos);
     }
 
     // API endpoint for booking actions (checkin, checkout, cancel for customers)
@@ -546,13 +679,12 @@ public class BookingWebController {
 
         switch (action) {
             case "checkin":
-                // Guest or host can check-in
-                if (!booking.getGuest().getId().equals(currentUser.getId()) &&
-                    !booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
-                    throw new RuntimeException("You are not authorized to perform this action");
+                // Guest can acknowledge check-in (not perform check-in directly)
+                if (!booking.getGuest().getId().equals(currentUser.getId())) {
+                    throw new RuntimeException("Only guest can acknowledge check-in");
                 }
-                bookingService.startTrip(bookingId, idempotencyKey);
-                return ResponseEntity.ok("Trip started");
+                bookingService.guestAcknowledgeCheckIn(bookingId, idempotencyKey);
+                return ResponseEntity.ok("Check-in acknowledged");
 
             case "checkout":
                 // Guest or host can check-out
@@ -576,52 +708,476 @@ public class BookingWebController {
         }
     }
 
-    // Helper method to convert Booking entity to DTO
-    private BookingDto convertToDto(Bookings booking) {
-        BookingDto dto = new BookingDto();
-        dto.setId(booking.getId());
-        dto.setStartAt(booking.getStartAt());
-        dto.setEndAt(booking.getEndAt());
-        dto.setStatus(booking.getStatus());
-        dto.setCreatedAt(booking.getCreatedAt());
-        dto.setUpdatedAt(booking.getUpdatedAt());
 
-        // Convert guest
-        BookingDto.UserDto guestDto = new BookingDto.UserDto();
-        guestDto.setId(booking.getGuest().getId());
-        guestDto.setEmail(booking.getGuest().getEmail());
-        guestDto.setPhone(booking.getGuest().getPhone());
-        dto.setGuest(guestDto);
 
-        // Convert listing
-        BookingDto.ListingDto listingDto = new BookingDto.ListingDto();
-        listingDto.setId(booking.getListing().getId());
-        listingDto.setHomeCity(booking.getListing().getHomeCity());
-        listingDto.setPrice24hCents(booking.getListing().getPrice24hCents());
-        listingDto.setInstantBook(booking.getListing().getInstantBook());
-        listingDto.setCancellationPolicy(booking.getListing().getCancellationPolicy().toString());
+    // Host check-in page
+    @GetMapping("/{bookingId:\\d+}/checkin-host")
+    public String showHostCheckInPage(@PathVariable Long bookingId, Model model) {
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
 
-        // Convert vehicle
-        BookingDto.ListingDto.VehicleDto vehicleDto = new BookingDto.ListingDto.VehicleDto();
-        vehicleDto.setId(booking.getListing().getVehicle().getId());
-        vehicleDto.setMake(booking.getListing().getVehicle().getMake());
-        vehicleDto.setModel(booking.getListing().getVehicle().getModel());
-        vehicleDto.setYear(booking.getListing().getVehicle().getYear());
-        vehicleDto.setTransmission(booking.getListing().getVehicle().getTransmission());
-        vehicleDto.setFuelType(booking.getListing().getVehicle().getFuelType());
-        vehicleDto.setSeats(booking.getListing().getVehicle().getSeats());
-        vehicleDto.setImageUrls(booking.getListing().getVehicle().getImageUrls());
+        // Only host can access check-in page
+        if (!booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access denied");
+        }
 
-        // Convert owner
-        BookingDto.ListingDto.VehicleDto.UserDto ownerDto = new BookingDto.ListingDto.VehicleDto.UserDto();
-        ownerDto.setId(booking.getListing().getVehicle().getOwner().getId());
-        ownerDto.setEmail(booking.getListing().getVehicle().getOwner().getEmail());
-        ownerDto.setPhone(booking.getListing().getVehicle().getOwner().getPhone());
-        vehicleDto.setOwner(ownerDto);
+        // Check status
+        if (!"PAYMENT_AUTHORIZED".equals(booking.getStatus())) {
+            return "redirect:/bookings/" + bookingId;
+        }
 
-        listingDto.setVehicle(vehicleDto);
-        dto.setListing(listingDto);
-
-        return dto;
+        model.addAttribute("bookingId", bookingId);
+        model.addAttribute("booking", booking);
+        return "booking/checkin-host";
     }
+
+    // Extended host check-in with inspection data
+    @PostMapping("/{bookingId:\\d+}/checkin-host")
+    public String hostCheckIn(
+            @PathVariable Long bookingId,
+            @RequestParam Integer odometerKm,
+            @RequestParam Byte fuelLevelPct,
+            @RequestParam(required = false) List<MultipartFile> photos,
+            @RequestParam(required = false) String notes,
+            RedirectAttributes redirectAttributes) {
+
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Only host can perform check-in
+        if (!booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Only the host can perform check-in");
+        }
+
+        try {
+            // DEBUG: Log all input parameters
+            logger.info("=== HOST CHECK-IN DEBUG START ===");
+            logger.info("Booking ID: {}", bookingId);
+            logger.info("Current User: {}", currentUser.getEmail());
+            logger.info("Odometer: {}", odometerKm);
+            logger.info("Fuel Level: {}", fuelLevelPct);
+            logger.info("Notes: {}", notes);
+            logger.info("Photos count: {}", photos != null ? photos.size() : 0);
+
+            // Check booking status (already have booking variable from above)
+            logger.info("Booking status: {}", booking.getStatus());
+
+            // Validate inputs
+            if (odometerKm == null || odometerKm < 0) {
+                throw new RuntimeException("Số km hiện tại phải >= 0");
+            }
+            if (fuelLevelPct == null || fuelLevelPct < 0 || fuelLevelPct > 100) {
+                throw new RuntimeException("Mức nhiên liệu phải từ 0-100%");
+            }
+
+            // Check if already checked in
+            List<OutboxEvents> existingEvents = outboxEventsRepository
+                .findByAggregateTypeAndAggregateIdAndEventType("Booking", bookingId, "CHECKIN_HOST");
+            if (!existingEvents.isEmpty()) {
+                throw new RuntimeException("Host đã check-in cho booking này rồi");
+            }
+
+            // Process photos and save to local uploads directory
+            String photosJson = null; // NULL instead of "[]" to satisfy SQL constraint
+            if (photos != null && !photos.isEmpty()) {
+                List<String> photoUrls = new ArrayList<>();
+                for (MultipartFile photo : photos) {
+                    if (!photo.isEmpty()) {
+                        try {
+                            // Save file to src/main/resources/static/uploads/
+                            String filename = UUID.randomUUID() + "_" + photo.getOriginalFilename();
+                            Path uploadPath = Paths.get("src/main/resources/static/uploads");
+                            Files.createDirectories(uploadPath);
+                            Files.copy(photo.getInputStream(), uploadPath.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+
+                            String photoUrl = "/uploads/" + filename;
+                            photoUrls.add(photoUrl);
+                            logger.info("Saved photo: {} -> {}", photo.getOriginalFilename(), filename);
+                        } catch (IOException e) {
+                            logger.error("Failed to save photo: {}", photo.getOriginalFilename(), e);
+                            // Continue with other photos
+                        }
+                    }
+                }
+                if (!photoUrls.isEmpty()) {
+                    // Use Jackson to create proper JSON array
+                    try {
+                        photosJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(photoUrls);
+                        logger.info("Photos JSON for booking {}: {}", bookingId, photosJson);
+                    } catch (Exception e) {
+                        logger.error("Failed to serialize photo URLs to JSON", e);
+                        // Fallback to null if JSON serialization fails
+                        photosJson = null;
+                    }
+                }
+            }
+
+            UUID idempotencyKey = UUID.randomUUID(); // Generate idempotency key
+            logger.info("Generated idempotency key: {}", idempotencyKey);
+
+            bookingService.hostCheckIn(bookingId, odometerKm, fuelLevelPct, photosJson, notes, idempotencyKey);
+
+            logger.info("=== HOST CHECK-IN SUCCESS ===");
+            redirectAttributes.addFlashAttribute("success", "Check-in thành công! Đang chờ khách xác nhận.");
+            return "redirect:/bookings/" + bookingId + "?checkin=success";
+
+        } catch (Exception e) {
+            logger.error("=== HOST CHECK-IN ERROR ===");
+            logger.error("Booking ID: {}", bookingId);
+            logger.error("User: {}", currentUser.getEmail());
+            logger.error("Error message: {}", e.getMessage());
+            logger.error("Error class: {}", e.getClass().getName());
+
+            // Log full stack trace
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            logger.error("Full stack trace: {}", sw.toString());
+
+            // Add debug info to flash attributes
+            redirectAttributes.addFlashAttribute("debug_bookingId", bookingId);
+            redirectAttributes.addFlashAttribute("debug_user", currentUser.getEmail());
+            redirectAttributes.addFlashAttribute("debug_error", e.getMessage());
+            redirectAttributes.addFlashAttribute("debug_errorClass", e.getClass().getName());
+            redirectAttributes.addFlashAttribute("debug_stackTrace", sw.toString());
+
+            redirectAttributes.addFlashAttribute("error", "Lỗi check-in: " + e.getMessage());
+            return "redirect:/bookings/" + bookingId + "/checkin-host"; // Stay on form to retry
+        }
+    }
+
+    // Guest check-in review page
+    @GetMapping("/{bookingId:\\d+}/checkin-guest")
+    public String showGuestCheckInReview(@PathVariable Long bookingId, Model model) {
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Only guest can access
+        if (!booking.getGuest().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access denied");
+        }
+
+        // Check if host has checked in
+        List<OutboxEvents> hostCheckInEvents = outboxEventsRepository
+            .findByAggregateTypeAndAggregateIdAndEventType("Booking", bookingId, "CHECKIN_HOST");
+
+        if (hostCheckInEvents.isEmpty()) {
+            return "redirect:/bookings/" + bookingId; // Redirect if host hasn't checked in yet
+        }
+
+        // Get host inspection data
+        List<TripInspections> inspections = tripInspectionsRepository.findByBookingId(bookingId);
+        TripInspections hostInspection = inspections.stream()
+            .filter(i -> "CHECKIN".equals(i.getChkType()))
+            .findFirst()
+            .orElse(null);
+
+        // Parse photos JSON
+        List<String> hostPhotos = new ArrayList<>();
+        if (hostInspection != null && hostInspection.getPhotosJson() != null) {
+            try {
+                // Simple parsing - in real app, use Jackson
+                String photosJson = hostInspection.getPhotosJson();
+                if (photosJson.startsWith("[") && photosJson.endsWith("]")) {
+                    String content = photosJson.substring(1, photosJson.length() - 1);
+                    if (!content.trim().isEmpty()) {
+                        for (String photo : content.split(",")) {
+                            String cleanPhoto = photo.trim().replaceAll("^\"|\"$", "");
+                            if (!cleanPhoto.isEmpty()) {
+                                hostPhotos.add(cleanPhoto);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore parsing errors
+            }
+        }
+
+        model.addAttribute("bookingId", bookingId);
+        model.addAttribute("booking", booking);
+        model.addAttribute("hostInspection", hostInspection);
+        model.addAttribute("hostPhotos", hostPhotos);
+
+        return "booking/checkin-guest";
+    }
+
+
+
+    // Host check-out page
+    @GetMapping("/{bookingId:\\d+}/checkout-host")
+    public String showHostCheckOutPage(@PathVariable Long bookingId, Model model) {
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Only host can access check-out page
+        if (!booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access denied");
+        }
+
+        // Check status
+        if (!"IN_PROGRESS".equals(booking.getStatus())) {
+            return "redirect:/bookings/" + bookingId;
+        }
+
+        // Get check-in inspection data
+        List<TripInspections> inspections = tripInspectionsRepository.findByBookingId(bookingId);
+        TripInspections checkinInspection = inspections.stream()
+            .filter(i -> "CHECKIN".equals(i.getChkType()))
+            .findFirst()
+            .orElse(null);
+
+        model.addAttribute("bookingId", bookingId);
+        model.addAttribute("booking", booking);
+        model.addAttribute("listing", booking.getListing());
+        model.addAttribute("checkinInspection", checkinInspection);
+
+        return "booking/checkout-host";
+    }
+
+    // Host check-out with charge calculation
+    @PostMapping("/{bookingId:\\d+}/checkout-host")
+    public String hostCheckOut(
+            @PathVariable Long bookingId,
+            @RequestParam Integer odometerKm,
+            @RequestParam Byte fuelLevelPct,
+            @RequestParam(required = false) List<MultipartFile> photos,
+            @RequestParam(required = false) String notes,
+            @RequestParam(defaultValue = "false") boolean needsCleaning,
+            RedirectAttributes redirectAttributes) {
+
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Only host can perform check-out
+        if (!booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Only the host can perform check-out");
+        }
+
+        try {
+            // Process photos (simplified - in real app, upload to cloud storage)
+            String photosJson = null; // NULL instead of "[]" to satisfy SQL constraint
+            if (photos != null && !photos.isEmpty()) {
+                List<String> photoUrls = new ArrayList<>();
+                for (MultipartFile photo : photos) {
+                    if (!photo.isEmpty()) {
+                        // In real implementation, upload to S3/Cloudinary and get URL
+                        String photoUrl = "/uploads/" + photo.getOriginalFilename();
+                        photoUrls.add(photoUrl);
+                    }
+                }
+                if (!photoUrls.isEmpty()) {
+                    // Use Jackson to create proper JSON array
+                    try {
+                        photosJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(photoUrls);
+                    } catch (Exception e) {
+                        logger.error("Failed to serialize photo URLs to JSON", e);
+                        // Fallback to null if JSON serialization fails
+                        photosJson = null;
+                    }
+                }
+            }
+
+            UUID idempotencyKey = UUID.randomUUID(); // Generate idempotency key
+            bookingService.hostCheckOut(bookingId, odometerKm, fuelLevelPct, photosJson, notes, needsCleaning, idempotencyKey);
+
+            redirectAttributes.addFlashAttribute("success", "Check-out thành công! Chuyến đi đã hoàn tất.");
+            return "redirect:/bookings/" + bookingId + "/summary";
+
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Lỗi check-out: " + e.getMessage());
+            return "redirect:/bookings/" + bookingId + "/checkout-host";
+        }
+    }
+
+    // Trip summary page
+    @GetMapping("/{bookingId:\\d+}/summary")
+    public String showTripSummary(@PathVariable Long bookingId, Model model) {
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Check authorization - guest or host can view
+        if (!booking.getGuest().getId().equals(currentUser.getId()) &&
+            !booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access denied");
+        }
+
+        // Check if booking is completed
+        if (!"COMPLETED".equals(booking.getStatus())) {
+            return "redirect:/bookings/" + bookingId;
+        }
+
+        // Get inspection data
+        List<TripInspections> inspections = tripInspectionsRepository.findByBookingId(bookingId);
+        TripInspections checkinInspection = inspections.stream()
+            .filter(i -> "CHECKIN".equals(i.getChkType()))
+            .findFirst()
+            .orElse(null);
+
+        TripInspections checkoutInspection = inspections.stream()
+            .filter(i -> "CHECKOUT".equals(i.getChkType()))
+            .findFirst()
+            .orElse(null);
+
+        // Parse photos
+        List<String> checkinPhotos = parsePhotosJson(checkinInspection != null ? checkinInspection.getPhotosJson() : null);
+        List<String> checkoutPhotos = parsePhotosJson(checkoutInspection != null ? checkoutInspection.getPhotosJson() : null);
+
+        // Calculate charges (simplified - in real app, get from charges table)
+        int baseAmount = (int) (booking.getListing().getPrice24hCents() *
+            (java.time.temporal.ChronoUnit.DAYS.between(booking.getStartAt().atZone(ZoneId.systemDefault()).toLocalDate(), booking.getEndAt().atZone(ZoneId.systemDefault()).toLocalDate()) + 1));
+
+        int kmOver = 0;
+        int kmOverCharge = 0;
+        int fuelCharge = 0;
+        int cleaningCharge = 0;
+
+        if (checkinInspection != null && checkoutInspection != null) {
+            // KM calculation
+            int kmUsed = checkoutInspection.getOdometerKm() - checkinInspection.getOdometerKm();
+            int kmLimit = booking.getListing().getKmLimit24h() *
+                (int) (java.time.temporal.ChronoUnit.DAYS.between(booking.getStartAt().atZone(ZoneId.systemDefault()).toLocalDate(), booking.getEndAt().atZone(ZoneId.systemDefault()).toLocalDate()) + 1);
+
+            if (kmUsed > kmLimit) {
+                kmOver = kmUsed - kmLimit;
+                kmOverCharge = kmOver * 5000; // 5000 VND/km
+            }
+
+            // Fuel calculation
+            int fuelUsed = checkinInspection.getFuelLevelPct() - checkoutInspection.getFuelLevelPct();
+            if (fuelUsed > 0) {
+                double litersMissing = (fuelUsed / 100.0) * 50; // Assume 50L tank
+                fuelCharge = (int) Math.round(litersMissing * 25000); // 25000 VND/liter
+            }
+
+            // Cleaning charge (from checkout notes or separate field)
+            if (checkoutInspection.getNotes() != null &&
+                checkoutInspection.getNotes().toLowerCase().contains("dọn") ||
+                checkoutInspection.getNotes().toLowerCase().contains("clean")) {
+                cleaningCharge = 50000;
+            }
+        }
+
+        int totalAmount = baseAmount + kmOverCharge + fuelCharge + cleaningCharge;
+
+        model.addAttribute("bookingId", bookingId);
+        model.addAttribute("booking", booking);
+        model.addAttribute("checkinInspection", checkinInspection);
+        model.addAttribute("checkoutInspection", checkoutInspection);
+        model.addAttribute("checkinPhotos", checkinPhotos);
+        model.addAttribute("checkoutPhotos", checkoutPhotos);
+        model.addAttribute("baseAmount", baseAmount);
+        model.addAttribute("kmOver", kmOver);
+        model.addAttribute("kmOverCharge", kmOverCharge);
+        model.addAttribute("fuelCharge", fuelCharge);
+        model.addAttribute("cleaningCharge", cleaningCharge);
+        model.addAttribute("totalAmount", totalAmount);
+
+        return "booking/summary";
+    }
+
+    // Accept charges
+    @PostMapping("/api/{bookingId:\\d+}/charges/accept")
+    public ResponseEntity<String> acceptCharges(
+            @PathVariable Long bookingId,
+            @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
+
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Only guest can accept charges
+        if (!booking.getGuest().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Only the guest can accept charges");
+        }
+
+        // Create CHARGES_ACCEPTED event
+        UUID idempotencyKey = UUID.fromString(idempotencyKeyStr);
+        OutboxEvents event = new OutboxEvents("Booking", bookingId, "CHARGES_ACCEPTED", "{}");
+        outboxEventsRepository.save(event);
+
+        return ResponseEntity.ok("Charges accepted successfully");
+    }
+
+    // Show review form
+    @GetMapping("/{bookingId:\\d+}/reviews")
+    public String showReviewForm(@PathVariable Long bookingId, Model model) {
+        User currentUser = getCurrentUser();
+        Bookings booking = bookingsRepository.findById(bookingId)
+            .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // Check if booking is completed
+        if (!"COMPLETED".equals(booking.getStatus())) {
+            return "redirect:/bookings/" + bookingId;
+        }
+
+        // Check if user is part of this booking
+        boolean isGuest = booking.getGuest().getId().equals(currentUser.getId());
+        boolean isHost = booking.getListing().getVehicle().getOwner().getId().equals(currentUser.getId());
+
+        if (!isGuest && !isHost) {
+            throw new RuntimeException("Access denied");
+        }
+
+        // Determine who to review
+        Long toUserId;
+        if (isGuest) {
+            toUserId = booking.getListing().getVehicle().getOwner().getId();
+        } else {
+            toUserId = booking.getGuest().getId();
+        }
+
+        model.addAttribute("bookingId", bookingId);
+        model.addAttribute("booking", booking);
+        model.addAttribute("toUserId", toUserId);
+
+        return "booking/review";
+    }
+
+    // Create review
+    @PostMapping("/api/reviews")
+    public ResponseEntity<String> createReview(
+            @RequestParam Long bookingId,
+            @RequestParam Long toUserId,
+            @RequestParam Byte rating,
+            @RequestParam(required = false) String comment,
+            @RequestHeader("Idempotency-Key") String idempotencyKeyStr) {
+
+        User currentUser = getCurrentUser();
+        UUID idempotencyKey = UUID.fromString(idempotencyKeyStr);
+
+        bookingService.createReview(bookingId, currentUser.getId(), toUserId, rating, comment, idempotencyKey);
+
+        return ResponseEntity.ok("Review submitted successfully");
+    }
+
+    // Helper method to parse photos JSON
+    private List<String> parsePhotosJson(String photosJson) {
+        List<String> photos = new ArrayList<>();
+        if (photosJson != null && !photosJson.trim().isEmpty()) {
+            try {
+                if (photosJson.startsWith("[") && photosJson.endsWith("]")) {
+                    String content = photosJson.substring(1, photosJson.length() - 1);
+                    if (!content.trim().isEmpty()) {
+                        for (String photo : content.split(",")) {
+                            String cleanPhoto = photo.trim().replaceAll("^\"|\"$", "");
+                            if (!cleanPhoto.isEmpty()) {
+                                photos.add(cleanPhoto);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore parsing errors
+            }
+        }
+        return photos;
+    }
+
 }

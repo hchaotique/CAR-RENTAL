@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -219,7 +220,8 @@ public class HostBookingController {
             dto.setCarMake(booking.getListing().getVehicle().getMake());
             dto.setCarModel(booking.getListing().getVehicle().getModel());
             dto.setCarYear(booking.getListing().getVehicle().getYear() != null ? booking.getListing().getVehicle().getYear().intValue() : null);
-            dto.setCarImageUrls(booking.getListing().getVehicle().getImageUrls());
+            dto.setCarImageUrls(booking.getListing().getVehicle().getImageUrls() != null ?
+                booking.getListing().getVehicle().getImageUrls() : new ArrayList<>());
         }
 
         // Listing info

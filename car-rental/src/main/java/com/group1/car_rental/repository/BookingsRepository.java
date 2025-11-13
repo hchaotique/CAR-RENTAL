@@ -32,4 +32,7 @@ public interface BookingsRepository extends JpaRepository<Bookings, Long> {
            "JOIN FETCH l.vehicle v " +
            "WHERE v.owner.id = :ownerId")
     List<Bookings> findByListingVehicleOwnerId(@Param("ownerId") Long ownerId);
+
+    @Query("SELECT b FROM Bookings b WHERE b.status = :status AND b.startAt < :startAtBefore")
+    List<Bookings> findByStatusAndStartAtBefore(@Param("status") String status, @Param("startAtBefore") Instant startAtBefore);
 }

@@ -1,7 +1,10 @@
 package com.group1.car_rental.dto;
 
 import jakarta.validation.constraints.*;
+import jakarta.validation.groups.Default;
 import lombok.Data;
+
+import org.hibernate.sql.Update;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -9,6 +12,8 @@ import java.util.List;
 
 @Data
 public class CarsForm {
+    public interface Create extends Default {}   // Kế thừa Default để vẫn validate các @NotBlank khác
+    public interface Update extends Default {}
     private Long id;
 
     @NotBlank(message = "Hãng xe không được trống")
@@ -28,7 +33,7 @@ public class CarsForm {
     private String transmission;
 
     @NotBlank(message = "Loại nhiên liệu không được trống")
-    @Pattern(regexp = "^(PETROL|DIESEL|ELECTRIC|HYBRID)$", message = "Loại nhiên liệu không hợp lệ")
+    @Pattern(regexp = "^(GAS|DIESEL|ELECTRIC|HYBRID)$", message = "Loại nhiên liệu không hợp lệ")
     private String fuelType;
 
     @Min(value = 1, message = "Số ghế phải lớn hơn 0")
@@ -39,14 +44,20 @@ public class CarsForm {
     @Positive(message = "Giá thuê phải lớn hơn 0")
     private Double dailyPrice;
 
-    private List<MultipartFile> imageFiles = new ArrayList<>(); // Upload mới
-    private List<String> existingImageUrls = new ArrayList<>(); // Ảnh cũ (khi edit)
+    // Bắt buộc có ít nhất 1 ảnh khi tạo mới
+   @Size(min = 1, message = "Vui lòng tải lên ít nhất 1 ảnh xe", groups = Create.class)
+   private List<MultipartFile> imageFiles = new ArrayList<>();
+
+  // Khi sửa: luôn có existingImageUrls (có thể empty)
+    private List<String> existingImageUrls = new ArrayList<>();
     private List<String> imageUrls = new ArrayList<>();
+    private List<Integer> removeImageIndices = new ArrayList<>();
 
     @NotBlank(message = "Thành phố không được trống")
     @Size(max = 100, message = "Tên thành phố quá dài")
     private String city;
 
+    @NotBlank(message = "Biển số không được để trống")
     @Size(max = 20, message = "Biển số quá dài")
     private String plateMasked;
 

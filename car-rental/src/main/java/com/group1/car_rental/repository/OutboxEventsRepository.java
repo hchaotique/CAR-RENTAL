@@ -13,4 +13,6 @@ public interface OutboxEventsRepository extends JpaRepository<OutboxEvents, Long
 
     @Query("SELECT o FROM OutboxEvents o WHERE o.processedAt IS NULL ORDER BY o.createdAt ASC")
     List<OutboxEvents> findUnprocessedEvents();
+
+    List<OutboxEvents> findByAggregateTypeAndAggregateIdAndEventType(String aggregateType, Long aggregateId, String eventType);
 }
